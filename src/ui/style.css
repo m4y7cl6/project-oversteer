@@ -289,6 +289,15 @@ body.touch-mode #hud-bottom { padding-bottom: 130px; }
 
 .subtitle { font-size: 14px; letter-spacing: 4px; opacity: .6; }
 
+#online-status {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #69f0ae;
+}
+
+#online-status.error { color: var(--danger); }
+
 .menu-block { text-align: center; }
 
 .menu-label { font-size: 14px; letter-spacing: 4px; opacity: .7; margin-bottom: 10px; }

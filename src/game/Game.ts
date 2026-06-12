@@ -14,13 +14,14 @@ import { PlayerController } from '../vehicle/PlayerController';
 import { AIController } from '../vehicle/AIController';
 import { RaceManager, RacerEntry } from '../race/RaceManager';
 import { GhostSystem } from '../race/GhostSystem';
+import { NetClient, NetKartState, NetStartConfig } from '../net/NetClient';
 import { ChaseCamera } from '../camera/ChaseCamera';
 import { SmokeSystem } from '../effects/SmokeSystem';
 import { GameAudio } from '../effects/GameAudio';
 import { HUD } from '../ui/HUD';
 import { Minimap } from '../ui/Minimap';
 import { Screens } from '../ui/Screens';
-import { PHYSICS, RACE, RACERS } from './config';
+import { KART, PHYSICS, RACE, RACERS } from './config';
 import { AssetManifestEntry } from '../core/AssetManager';
 
 const FIXED_DT = 1 / PHYSICS.TICK_RATE;
@@ -75,6 +76,18 @@ export class Game {
 
   private ghost = new GhostSystem();
   private mode: 'race' | 'timetrial' = 'race';
+
+  // ---- online (M4 prototype) ----
+  private net?: NetClient;
+  private onlineRace = false;
+  private netTick = 0;
+  /** peer id → kart driven by network state (interpolation buffer). */
+  private remotes = new Map<number, {
+    kart: Kart;
+    samples: { t: number; p: [number, number, number]; q: [number, number, number, number]; s: number; drift: boolean; boost: boolean }[];
+    last?: NetKartState;
+  }>();
+  private remoteKarts = new Set<Kart>();
 
   private countdownLeft = 0;
   private lastCountShown = -1;
@@ -131,6 +144,7 @@ export class Game {
     this.setTrack(TRACKS[0]);
 
     this.wireUi();
+    this.setupNet();
     this.screens.setupFullscreenHelpers(this.touch.enabled);
     window.addEventListener('resize', () => this.onResize());
     this.screens.setLoading('ready', true);
@@ -184,6 +198,9 @@ export class Game {
   }
 
   private startRace(): void {
+    this.onlineRace = false;
+    this.remotes.clear();
+    this.remoteKarts.clear();
     this.setTrack(TRACKS.find((t) => t.id === this.screens.selectedTrack) ?? TRACKS[0]);
     this.trackManager.totalLaps = this.screens.selectedLaps;
     this.mode = this.screens.selectedMode;
@@ -212,15 +229,127 @@ export class Game {
       this.ghost.dispose(this.scene);
       this.raceManager.setup(this.entries);
     }
+    this.beginCountdown();
+  }
+
+  private beginCountdown(): void {
     this.screens.hideStart();
     this.screens.hideResults();
     this.hud.show();
     this.chaseCam.snapTo(this.playerKart);
     this.audio.start();
     this.audio.resume();
-
     this.countdownLeft = RACE.COUNTDOWN_SECONDS + 0.5; // brief hold on "3"
     this.lastCountShown = -1;
+  }
+
+  // ---------------- online session ----------------
+
+  /** Join a room when the URL carries ?room=CODE (&server=ws://..&name=..). */
+  private setupNet(): void {
+    const params = new URLSearchParams(location.search);
+    const room = params.get('room');
+    if (!room) return;
+    const server = params.get('server') ?? 'ws://localhost:8787';
+    const name = params.get('name') ?? `P${Math.floor(Math.random() * 90 + 10)}`;
+
+    const lobby = () => {
+      const n = this.net!;
+      this.screens.setOnlineStatus(
+        `ONLINE · ROOM ${n.room} · ${n.members.length} PLAYER${n.members.length > 1 ? 'S' : ''}` +
+        (n.isHost ? ' · YOU ARE HOST' : ''),
+      );
+      if (this.raceManager.state === 'idle' || this.raceManager.state === 'postrace') {
+        this.screens.setStartButton(
+          n.isHost ? 'START RACE' : 'WAITING FOR HOST…',
+          n.isHost,
+        );
+      }
+    };
+
+    this.net = new NetClient(server, room, name, {
+      onJoined: lobby,
+      onMembers: lobby,
+      onStart: (config) => this.startOnlineRace(config),
+      onState: (fromId, st) => {
+        const r = this.remotes.get(fromId);
+        if (!r) return;
+        r.last = st;
+        r.samples.push({
+          t: performance.now() / 1000,
+          p: st.p, q: st.q, s: st.s, drift: st.drift, boost: st.boost,
+        });
+        if (r.samples.length > 30) r.samples.shift();
+      },
+      onError: (reason) => {
+        this.screens.setOnlineStatus(`ONLINE ERROR: ${reason}`, true);
+        this.screens.setStartButton('START RACE', true);
+        this.net = undefined;
+      },
+    });
+    this.screens.setOnlineStatus('CONNECTING…');
+    this.screens.setStartButton('WAITING FOR HOST…', false);
+    this.net.connect();
+  }
+
+  /** Everyone in the room starts the same race (host-picked track/laps). */
+  private startOnlineRace(config: NetStartConfig): void {
+    if (!this.net) return;
+    this.onlineRace = true;
+    this.mode = 'race';
+    this.setTrack(TRACKS.find((t) => t.id === config.track) ?? TRACKS[0]);
+    this.trackManager.totalLaps = config.laps;
+
+    for (const e of this.entries) {
+      e.progress = new Progress();
+      e.kart.state.nitroGauge = 0;
+      e.kart.state.boostTimer = 0;
+      e.kart.state.totalDriftScore = 0;
+    }
+    this.ghost.dispose(this.scene);
+
+    // local player races; peers take the next karts; the rest park off-track
+    const peers = this.net.members.filter((m) => m.id !== this.net!.selfId);
+    this.remotes.clear();
+    this.remoteKarts.clear();
+    this.entries.forEach((e, i) => {
+      if (i === 0) return;
+      const peer = peers[i - 1];
+      if (peer) {
+        e.kart.visual.visible = true;
+        // body parked far away: remote karts are visual-only (no collisions)
+        e.kart.placeAt(new THREE.Vector3(400, 0.4, 340 + i * 8), 0);
+        this.remotes.set(peer.id, { kart: e.kart, samples: [] });
+        this.remoteKarts.add(e.kart);
+        const slot = this.trackManager.startTransform(this.net!.slotOf(peer.id));
+        e.kart.visual.position.copy(slot.position).setY(0.05);
+        e.kart.visual.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), slot.rotationY);
+      } else {
+        e.kart.placeAt(new THREE.Vector3(400, 0.4, 340 + i * 8), 0);
+        e.kart.visual.visible = false;
+      }
+    });
+
+    this.raceManager.setup([this.entries[0]]);
+    const mySlot = this.trackManager.startTransform(this.net.slotOf(this.net.selfId));
+    this.playerKart.placeAt(mySlot.position, mySlot.rotationY);
+    this.entries[0].progress.sampleIndex =
+      this.trackManager.data.closestSampleIndex(mySlot.position);
+
+    this.beginCountdown();
+  }
+
+  /** Live rank against remote racers (scores arrive with their state). */
+  private onlineRank(): number {
+    const my = this.raceManager.player.progress;
+    let rank = 1;
+    for (const r of this.remotes.values()) {
+      const st = r.last;
+      if (!st) continue;
+      if (st.finished && (!my.finished || st.finishTime < my.finishTime)) rank++;
+      else if (!st.finished && !my.finished && st.score > my.score) rank++;
+    }
+    return rank;
   }
 
   private wireRaceEvents(): void {
@@ -245,8 +374,19 @@ export class Game {
   }
 
   private wireUi(): void {
-    this.screens.onStart(() => this.startRace());
-    this.screens.onRestart(() => this.startRace());
+    // online: only the host launches races (broadcast starts everyone)
+    const requestStart = () => {
+      if (this.net?.connected) {
+        this.net.sendStart({
+          track: this.screens.selectedTrack,
+          laps: this.screens.selectedLaps,
+        });
+      } else {
+        this.startRace();
+      }
+    };
+    this.screens.onStart(requestStart);
+    this.screens.onRestart(requestStart);
     // switching tracks in the menu rebuilds the idle backdrop immediately
     this.screens.onTrackChange = (id) => {
       if (this.raceManager.state === 'idle') {
@@ -283,9 +423,10 @@ export class Game {
       this.raceManager.state === 'postrace';
     const playerDriving = this.raceManager.state === 'racing';
 
-    // controllers write intents (AI sit out time trials)
+    // controllers write intents (AI sit out time trials and online races)
     this.playerController.fixedUpdate(playerDriving);
-    for (const e of this.entries) e.ai?.fixedUpdate(dt, racing && this.mode === 'race');
+    const aiActive = racing && this.mode === 'race' && !this.onlineRace;
+    for (const e of this.entries) e.ai?.fixedUpdate(dt, aiActive);
 
     // handling model + physics step
     if (racing) {
@@ -312,6 +453,24 @@ export class Game {
 
       if (this.mode === 'timetrial' && !this.raceManager.player.progress.finished) {
         this.ghost.recordTick(this.playerKart);
+      }
+
+      // broadcast our kart at ~12 Hz
+      if (this.onlineRace && this.net?.connected && ++this.netTick % 5 === 0) {
+        const t = this.playerKart.body.translation();
+        const r = this.playerKart.body.rotation();
+        const st = this.playerKart.state;
+        const prog = this.raceManager.player.progress;
+        this.net.sendState({
+          p: [t.x, t.y, t.z],
+          q: [r.x, r.y, r.z, r.w],
+          s: st.forwardSpeed,
+          drift: st.isDrifting,
+          boost: st.isBoosting,
+          score: prog.score,
+          finished: prog.finished,
+          finishTime: prog.finishTime,
+        });
       }
     }
 
@@ -363,11 +522,18 @@ export class Game {
   }
 
   private render(dt: number, alpha: number): void {
-    for (const e of this.entries) e.kart.syncVisual(alpha);
+    for (const e of this.entries) {
+      if (!this.remoteKarts.has(e.kart)) e.kart.syncVisual(alpha);
+    }
+    if (this.onlineRace) this.updateRemotes();
     this.world.update(dt, alpha);
 
     this.chaseCam.update(this.playerKart, dt);
-    this.smoke.update(this.entries.map((e) => e.kart), dt);
+    // remote karts' bodies are parked; their smoke would emit at the car park
+    this.smoke.update(
+      this.entries.map((e) => e.kart).filter((k) => !this.remoteKarts.has(k)),
+      dt,
+    );
     this.audio.update(this.playerKart.state);
     if (this.mode === 'timetrial') this.ghost.update(this.raceManager.raceTime);
 
@@ -378,11 +544,23 @@ export class Game {
         dt,
         player.kart.state,
         player.progress,
-        rm.rankOf(player),
+        this.onlineRace ? this.onlineRank() : rm.rankOf(player),
         this.trackManager.totalLaps,
         rm.raceTime,
       );
-      this.minimap.draw(rm.entries, 0);
+      const dots = rm.entries.map((e, i) => {
+        const p = e.kart.position;
+        return { x: p.x, z: p.z, color: e.kart.spec.color, isPlayer: i === 0 };
+      });
+      for (const r of this.remotes.values()) {
+        dots.push({
+          x: r.kart.visual.position.x,
+          z: r.kart.visual.position.z,
+          color: r.kart.spec.color,
+          isPlayer: false,
+        });
+      }
+      this.minimap.draw(dots);
     }
 
     // keep the results table fresh while AI finish their laps
@@ -395,6 +573,32 @@ export class Game {
     }
 
     this.renderer.render(this.scene, this.chaseCam.camera);
+  }
+
+  /** Drive remote kart visuals from their state buffers (render ~150 ms behind). */
+  private updateRemotes(): void {
+    const renderT = performance.now() / 1000 - 0.15;
+    const pa = new THREE.Vector3();
+    const pb = new THREE.Vector3();
+    const qa = new THREE.Quaternion();
+    const qb = new THREE.Quaternion();
+    for (const r of this.remotes.values()) {
+      const s = r.samples;
+      if (s.length === 0) continue;
+      let i = s.length - 1;
+      while (i > 0 && s[i - 1].t > renderT) i--;
+      const a = s[Math.max(0, i - 1)];
+      const b = s[i];
+      const span = b.t - a.t;
+      const t = span > 0.0001 ? THREE.MathUtils.clamp((renderT - a.t) / span, 0, 1) : 1;
+      pa.set(a.p[0], a.p[1], a.p[2]);
+      pb.set(b.p[0], b.p[1], b.p[2]);
+      qa.set(a.q[0], a.q[1], a.q[2], a.q[3]);
+      qb.set(b.q[0], b.q[1], b.q[2], b.q[3]);
+      r.kart.visual.position.lerpVectors(pa, pb, t);
+      r.kart.visual.position.y -= KART.HALF_HEIGHT; // body center → visual origin
+      r.kart.visual.quaternion.copy(qa).slerp(qb, t);
+    }
   }
 
   private onResize(): void {

@@ -84,6 +84,20 @@ export class Screens {
     this.startButton.disabled = !ready;
   }
 
+  /** Online lobby line under the title; pass null to hide. */
+  setOnlineStatus(text: string | null, isError = false): void {
+    const el = document.getElementById('online-status')!;
+    el.classList.toggle('hidden', text === null);
+    el.classList.toggle('error', isError);
+    if (text !== null) el.textContent = text;
+  }
+
+  /** Guests wait for the host: relabel/disable the start button. */
+  setStartButton(label: string, enabled: boolean): void {
+    this.startButton.textContent = label;
+    this.startButton.disabled = !enabled;
+  }
+
   onStart(fn: () => void): void {
     this.startButton.addEventListener('click', fn);
   }

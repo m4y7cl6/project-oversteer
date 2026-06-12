@@ -42,6 +42,16 @@
 - [x] Gamepad support (standard mapping: stick steer, RT/LT, A drift, B/X nitro)
 - [ ] Performance pass: instanced scenery, draw-call audit
 
-## M4 — Multiplayer (future)
-- [ ] Deterministic tick audit; input-delay rollback prototype
-- [ ] WebSocket room server; transform interpolation for remote karts
+## M4 — Multiplayer (prototype ✅)
+- [x] WebSocket room server (server/server.cjs: join-order host, 8-player
+      rooms, JSON relay) — deployable to any Node host, `npm run server`
+- [x] Client online mode via `?room=CODE&server=ws://...&name=NAME`:
+      host-broadcast race start, 12 Hz kart state sync, remote karts as
+      interpolated visuals (150 ms buffer), live cross-client ranking
+- [x] Two-browser E2E test (scripts/online-test.cjs)
+- Chosen sync model: state sync (not rollback) — remote karts are
+  non-colliding visuals, which sidesteps determinism requirements at the
+  cost of kart-vs-kart contact online.
+- [ ] Next: remote wheel/flame animation, shared results table with peer
+      names, kart-vs-kart collision (needs authoritative host or rollback),
+      public server deployment

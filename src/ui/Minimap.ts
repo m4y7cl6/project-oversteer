@@ -1,5 +1,11 @@
 import { TrackData } from '../track/TrackData';
-import { RacerEntry } from '../race/RaceManager';
+
+export interface MinimapDot {
+  x: number;
+  z: number;
+  color: number;
+  isPlayer: boolean;
+}
 
 /** Top-down track outline with live kart dots, drawn on a small 2D canvas. */
 export class Minimap {
@@ -34,7 +40,7 @@ export class Minimap {
   private mapX(x: number): number { return x * this.scale + this.offsetX; }
   private mapY(z: number): number { return z * this.scale + this.offsetY; }
 
-  draw(entries: RacerEntry[], playerIndex: number): void {
+  draw(dots: MinimapDot[]): void {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -45,22 +51,18 @@ export class Minimap {
     ctx.lineWidth = 4;
     ctx.stroke();
 
-    entries.forEach((e, i) => {
-      const p = e.kart.position;
-      const x = this.mapX(p.x);
-      const y = this.mapY(p.z);
-      const isPlayer = i === playerIndex;
+    for (const d of dots) {
+      const x = this.mapX(d.x);
+      const y = this.mapY(d.z);
       ctx.beginPath();
-      ctx.arc(x, y, isPlayer ? 5 : 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = isPlayer
-        ? '#00e5ff'
-        : `#${e.kart.spec.color.toString(16).padStart(6, '0')}`;
+      ctx.arc(x, y, d.isPlayer ? 5 : 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = d.isPlayer ? '#00e5ff' : `#${d.color.toString(16).padStart(6, '0')}`;
       ctx.fill();
-      if (isPlayer) {
+      if (d.isPlayer) {
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
-    });
+    }
   }
 }

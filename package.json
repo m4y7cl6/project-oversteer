@@ -9,11 +9,13 @@
     "preview": "vite preview",
     "assets:download": "ts-node --transpile-only scripts/download-assets.ts",
     "assets:optimize": "ts-node --transpile-only scripts/optimize-assets.ts",
-    "assets:build": "ts-node --transpile-only scripts/build-assets.ts"
+    "assets:build": "ts-node --transpile-only scripts/build-assets.ts",
+    "server": "node server/server.cjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.11.2",
-    "three": "0.160.1"
+    "three": "0.160.1",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/node": "^18.19.0",

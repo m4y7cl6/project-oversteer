@@ -57,6 +57,25 @@ materials are tinted to the racer color at load. Only CC0 / free-commercial
 Note: `@gltf-transform/cli` needs Node 18+, so on Node 16 the optimize step
 copies models through unoptimized (they're tiny).
 
+## Online multiplayer (prototype)
+
+Run the room server somewhere both players can reach:
+
+```bash
+npm run server        # ws server on :8787 (PORT env to change)
+```
+
+Then open the game with room parameters (first joiner is the host and
+starts the race):
+
+```
+http://localhost:5173/?room=MYROOM&name=PLAYER1
+https://m4y7cl6.github.io/project-oversteer/?room=MYROOM&server=wss://your-host&name=PLAYER1
+```
+
+Remote karts are interpolated visuals (no kart-vs-kart collision online);
+ranking syncs live. See docs/ROADMAP.md M4 for the sync-model notes.
+
 ## Project layout
 
 ```
