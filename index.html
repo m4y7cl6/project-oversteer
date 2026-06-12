@@ -5,9 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>NITRO RUSH</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🏎️</text></svg>" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#05070d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NITRO RUSH" />
   
-  <script type="module" crossorigin src="./assets/index-ae139c32.js"></script>
-  <link rel="stylesheet" href="./assets/index-14f96954.css">
+  <script type="module" crossorigin src="./assets/index-cb1ea61e.js"></script>
+  <link rel="stylesheet" href="./assets/index-05a85d17.css">
 </head>
 <body>
   <div id="app">
@@ -75,6 +82,10 @@
         <span>W accelerate</span><span>S brake/reverse</span><span>A/D steer</span>
         <span>SHIFT drift</span><span>CTRL nitro</span><span>R reset kart</span>
       </div>
+      <button id="fullscreen-button" class="hidden">⛶ FULLSCREEN</button>
+      <p id="ios-hint" class="hidden">
+        Fullscreen on iPhone: Share → Add to Home Screen（分享 → 加入主畫面）
+      </p>
       <p id="loading-status">loading physics...</p>
     </div>
     <div id="results-screen" class="hidden">
