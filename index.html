@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NITRO RUSH</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🏎️</text></svg>" />
+  
+  <script type="module" crossorigin src="./assets/index-0eb47874.js"></script>
+  <link rel="stylesheet" href="./assets/index-c23507b1.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="game-canvas"></canvas>
+    <div id="hud" class="hidden">
+      <div id="hud-top">
+        <div id="hud-position"><span id="position-value">8</span><span id="position-suffix">th</span></div>
+        <div id="hud-center">
+          <div id="hud-lap">LAP <span id="lap-value">1/3</span></div>
+          <div id="hud-time"><span id="time-value">0:00.000</span></div>
+          <div id="hud-lasttime">LAST <span id="lasttime-value">--:--.---</span></div>
+        </div>
+        <div id="hud-minimap"><canvas id="minimap-canvas" width="180" height="180"></canvas></div>
+      </div>
+      <div id="hud-bottom">
+        <div id="hud-drift">
+          <div id="drift-score" class="hidden">DRIFT <span id="drift-value">0</span></div>
+        </div>
+        <div id="hud-speed">
+          <span id="speed-value">0</span>
+          <span id="speed-unit">km/h</span>
+        </div>
+        <div id="hud-nitro">
+          <div id="nitro-label">NITRO</div>
+          <div id="nitro-bar"><div id="nitro-fill"></div></div>
+          <div id="nitro-ready" class="hidden">READY! [CTRL]</div>
+        </div>
+      </div>
+      <div id="hud-message" class="hidden"></div>
+      <div id="wrong-way" class="hidden">WRONG WAY!</div>
+    </div>
+    <div id="countdown" class="hidden"></div>
+    <div id="start-screen">
+      <h1 class="title">NITRO<span class="title-accent">RUSH</span></h1>
+      <p class="subtitle">PROJECT OVERSTEER &mdash; KART RACING PROTOTYPE</p>
+      <div class="menu-block">
+        <p class="menu-label">LAPS</p>
+        <div class="lap-options">
+          <button class="lap-btn" data-laps="1">1</button>
+          <button class="lap-btn selected" data-laps="3">3</button>
+          <button class="lap-btn" data-laps="5">5</button>
+        </div>
+      </div>
+      <button id="start-button">START RACE</button>
+      <div class="controls-help">
+        <span>W accelerate</span><span>S brake/reverse</span><span>A/D steer</span>
+        <span>SHIFT drift</span><span>CTRL nitro</span><span>R reset kart</span>
+      </div>
+      <p id="loading-status">loading physics...</p>
+    </div>
+    <div id="results-screen" class="hidden">
+      <h2>RACE RESULTS</h2>
+      <table id="results-table">
+        <thead><tr><th>#</th><th>RACER</th><th>TOTAL</th><th>BEST LAP</th></tr></thead>
+        <tbody id="results-body"></tbody>
+      </table>
+      <button id="restart-button">RACE AGAIN</button>
+    </div>
+  </div>
+  
+</body>
+</html>

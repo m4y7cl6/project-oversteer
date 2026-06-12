@@ -1,0 +1,47 @@
+[
+  {
+    "key": "kenney-car-kit.Models.GLB format.kart-oobi",
+    "url": "assets/kenney-car-kit/Models/GLB format/kart-oobi.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-car-kit.Models.GLB format.kart-oodi",
+    "url": "assets/kenney-car-kit/Models/GLB format/kart-oodi.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-car-kit.Models.GLB format.kart-ooli",
+    "url": "assets/kenney-car-kit/Models/GLB format/kart-ooli.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-car-kit.Models.GLB format.kart-oopi",
+    "url": "assets/kenney-car-kit/Models/GLB format/kart-oopi.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-car-kit.Models.GLB format.kart-oozi",
+    "url": "assets/kenney-car-kit/Models/GLB format/kart-oozi.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-car-kit.Models.GLB format.race-future",
+    "url": "assets/kenney-car-kit/Models/GLB format/race-future.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-car-kit.Models.GLB format.race",
+    "url": "assets/kenney-car-kit/Models/GLB format/race.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-car-kit.Models.GLB format.Textures.colormap",
+    "url": "assets/kenney-car-kit/Models/GLB format/Textures/colormap.png",
+    "type": "texture"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.raceCarWhite",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/raceCarWhite.glb",
+    "type": "gltf"
+  }
+]
