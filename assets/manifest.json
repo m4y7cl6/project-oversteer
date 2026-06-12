@@ -1,5 +1,10 @@
 [
   {
+    "key": "kenney-car-kit.Models.GLB format.Textures.colormap",
+    "url": "assets/kenney-car-kit/Models/GLB format/Textures/colormap.png",
+    "type": "texture"
+  },
+  {
     "key": "kenney-car-kit.Models.GLB format.kart-oobi",
     "url": "assets/kenney-car-kit/Models/GLB format/kart-oobi.glb",
     "type": "gltf"
@@ -33,11 +38,6 @@
     "key": "kenney-car-kit.Models.GLB format.race",
     "url": "assets/kenney-car-kit/Models/GLB format/race.glb",
     "type": "gltf"
-  },
-  {
-    "key": "kenney-car-kit.Models.GLB format.Textures.colormap",
-    "url": "assets/kenney-car-kit/Models/GLB format/Textures/colormap.png",
-    "type": "texture"
   },
   {
     "key": "kenney-racing-kit.Models.GLTF format.raceCarWhite",
