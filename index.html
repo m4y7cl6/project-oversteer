@@ -13,8 +13,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="NITRO RUSH" />
   
-  <script type="module" crossorigin src="./assets/index-cb1ea61e.js"></script>
-  <link rel="stylesheet" href="./assets/index-05a85d17.css">
+  <script type="module" crossorigin src="./assets/index-299bdf55.js"></script>
+  <link rel="stylesheet" href="./assets/index-331f04cc.css">
 </head>
 <body>
   <div id="app">
@@ -63,6 +63,13 @@
       <h1 class="title">NITRO<span class="title-accent">RUSH</span></h1>
       <p class="subtitle">PROJECT OVERSTEER &mdash; KART RACING PROTOTYPE</p>
       <div class="menu-block">
+        <p class="menu-label">MODE</p>
+        <div class="track-options">
+          <button class="mode-btn selected" data-mode="race">RACE</button>
+          <button class="mode-btn" data-mode="timetrial">TIME TRIAL</button>
+        </div>
+      </div>
+      <div class="menu-block">
         <p class="menu-label">TRACK</p>
         <div class="track-options">
           <button class="track-btn selected" data-track="sunrise">SUNRISE CIRCUIT</button>
@@ -81,6 +88,7 @@
       <div class="controls-help">
         <span>W accelerate</span><span>S brake/reverse</span><span>A/D steer</span>
         <span>SHIFT drift</span><span>CTRL nitro</span><span>R reset kart</span>
+        <span>M music</span><span>🎮 gamepad supported</span>
       </div>
       <button id="fullscreen-button" class="hidden">⛶ FULLSCREEN</button>
       <p id="ios-hint" class="hidden">
