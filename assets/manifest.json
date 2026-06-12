@@ -100,8 +100,68 @@
     "type": "audio"
   },
   {
+    "key": "kenney-racing-kit.Models.GLTF format.bannerTowerGreen",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/bannerTowerGreen.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.bannerTowerRed",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/bannerTowerRed.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.flagCheckers",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/flagCheckers.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.flagGreen",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/flagGreen.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.flagRed",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/flagRed.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.grandStand",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/grandStand.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.grandStandCovered",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/grandStandCovered.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.lightPostModern",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/lightPostModern.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.overheadLights",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/overheadLights.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.pylon",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/pylon.glb",
+    "type": "gltf"
+  },
+  {
     "key": "kenney-racing-kit.Models.GLTF format.raceCarWhite",
     "url": "assets/kenney-racing-kit/Models/GLTF format/raceCarWhite.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.treeLarge",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/treeLarge.glb",
+    "type": "gltf"
+  },
+  {
+    "key": "kenney-racing-kit.Models.GLTF format.treeSmall",
+    "url": "assets/kenney-racing-kit/Models/GLTF format/treeSmall.glb",
     "type": "gltf"
   }
 ]
