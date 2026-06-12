@@ -42,6 +42,18 @@ export const DRIFT = {
   MIN_SLIP_DEG: 8, // slip angle that starts counting score
   SCORE_RATE: 22, // points per second per radian of slip
   GAUGE_PER_SCORE: 0.030, // nitro gauge % gained per drift point
+
+  // KartRider-style release boost: hold a drift long enough and letting go
+  // grants an instant mini-boost (tier 1 "blue spark", tier 2 "orange spark")
+  TIER1_SCORE: 40, // ≈1 s of solid sliding
+  TIER2_SCORE: 110,
+  TIER1_BOOST_TIME: 0.9, // s of extra accel after release
+  TIER2_BOOST_TIME: 1.6,
+  TIER1_KICK: 2.5, // instant m/s on release
+  TIER2_KICK: 4.5,
+  TIER1_MAX_BONUS: 4, // max-speed headroom while the mini-boost runs
+  TIER2_MAX_BONUS: 7,
+  MINI_BOOST_ACCEL: 18, // extra m/s^2 while a mini-boost is active
 };
 
 export const NITRO = {

@@ -53,16 +53,37 @@ const SHOT_DIR = path.resolve(__dirname, '..', '.smoke');
   console.log('HUD on straight:', JSON.stringify(straight));
 
   // drift burst into the first corner (steer right, matching the track)
+  const readKartState = () => page.evaluate(() => {
+    const st = window.__NITRO_RUSH__.raceManager.player.kart.state;
+    return {
+      drifting: st.isDrifting,
+      score: Math.round(st.driftScore),
+      tier: st.driftTier,
+      miniTier: st.miniBoostTier,
+      miniTimer: +st.miniBoostTimer.toFixed(2),
+    };
+  });
   await page.keyboard.down('d');
   await page.keyboard.down('Shift');
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(1100);
+  const midDrift = await readKartState();
+  await page.screenshot({ path: path.join(SHOT_DIR, '3-racing.png') });
   await page.keyboard.up('Shift');
   await page.keyboard.up('d');
-  await page.waitForTimeout(1200);
-  await page.screenshot({ path: path.join(SHOT_DIR, '3-racing.png') });
+  await page.waitForTimeout(200);
+  const released = await readKartState();
+  await page.waitForTimeout(1000);
   const afterDrift = await readHud();
   await page.keyboard.up('w');
+  console.log('mid-drift:', JSON.stringify(midDrift));
+  console.log('released:', JSON.stringify(released));
   console.log('HUD after drift:', JSON.stringify(afterDrift));
+
+  if (!midDrift.drifting || midDrift.score <= 0) throw new Error('drift did not register');
+  if (midDrift.tier >= 1 && released.miniTier < 1) {
+    throw new Error('tier earned but no mini-boost on release');
+  }
+  if (midDrift.tier === 0) console.log('note: drift too short for tier 1 this run');
 
   const speed = parseInt(straight.speed, 10);
   if (!(speed > 70)) throw new Error(`kart too slow on straight (speed=${straight.speed})`);

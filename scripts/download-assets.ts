@@ -37,6 +37,27 @@ const SOURCES: AssetSource[] = [
     attribution: 'Kenney.nl',
     dir: 'kenney-car-kit',
   },
+  {
+    name: 'Kenney Impact Sounds',
+    url: 'https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip',
+    license: 'CC0',
+    attribution: 'Kenney.nl',
+    dir: 'kenney-impact-sounds',
+  },
+  {
+    name: 'Kenney Interface Sounds',
+    url: 'https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip',
+    license: 'CC0',
+    attribution: 'Kenney.nl',
+    dir: 'kenney-interface-sounds',
+  },
+  {
+    name: 'Kenney Music Jingles',
+    url: 'https://kenney.nl/media/pages/assets/music-jingles/f37e530b9e-1677590399/kenney_music-jingles.zip',
+    license: 'CC0',
+    attribution: 'Kenney.nl',
+    dir: 'kenney-music-jingles',
+  },
 ];
 
 const RAW_DIR = path.resolve(__dirname, '..', 'assets', 'raw');

@@ -21,7 +21,7 @@ function walk(dir: string, out: string[] = []): string[] {
   for (const name of fs.readdirSync(dir)) {
     const p = path.join(dir, name);
     if (fs.statSync(p).isDirectory()) walk(p, out);
-    else if (/\.(glb|gltf)$/i.test(name)) out.push(p);
+    else if (/\.(glb|gltf|ogg|mp3|wav)$/i.test(name)) out.push(p);
   }
   return out;
 }
@@ -43,6 +43,12 @@ function main(): void {
     const rel = path.relative(RAW_DIR, src).replace(/\.gltf$/i, '.glb');
     const dest = path.join(OUT_DIR, rel);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
+    if (/\.(ogg|mp3|wav)$/i.test(src)) {
+      // audio passes through as-is
+      fs.copyFileSync(src, dest);
+      copied++;
+      continue;
+    }
     try {
       execSync(
         `npx --yes @gltf-transform/cli optimize "${src}" "${dest}" --compress draco --texture-compress webp`,

@@ -23,11 +23,14 @@
 ## M3 — Polish (next)
 - [x] Kart models from Kenney Car Kit / Racing Kit (CC0) via asset pipeline,
       tinted per racer, with procedural fallback
+- [x] Drift mini-boost tiers (blue/orange spark levels, KartRider-style):
+      release boost, spark particles, HUD tier colors
+- [x] SFX: Kenney CC0 one-shots (impacts, countdown, lap, boosts, finish
+      jingle) + procedural engine/skid/nitro noise
 - [ ] Track scenery from Kenney Racing Kit (flags, barriers, trees, grandstand)
-- [ ] Drift mini-boost tiers (blue/orange spark levels, KartRider-style)
 - [ ] Item-free time-trial mode with ghost replay
 - [ ] Second track + track select; elevation support in TrackBuilder
-- [ ] Engine/skid/impact sounds from CC0 packs; music
+- [ ] Background music loop
 - [ ] Gamepad support; mobile touch controls
 - [ ] Performance pass: instanced scenery, draw-call audit
 

@@ -21,6 +21,14 @@ export class KartInput {
   }
 }
 
+/** One-shot gameplay events drained by Game for SFX/HUD feedback. */
+export type KartEvent =
+  | 'drift-tier-1'
+  | 'drift-tier-2'
+  | 'mini-boost-1'
+  | 'mini-boost-2'
+  | 'nitro';
+
 /** Gameplay state owned by the kart's physics model. */
 export class KartState {
   forwardSpeed = 0;
@@ -30,9 +38,14 @@ export class KartState {
   isDrifting = false;
   driftScore = 0; // points in the current drift
   totalDriftScore = 0;
+  /** 0/1/2 while drifting — which release-boost tier is currently earned. */
+  driftTier = 0;
+  miniBoostTimer = 0;
+  miniBoostTier = 0;
   nitroGauge = 0; // 0..100
   boostTimer = 0;
   offroad = false;
+  events: KartEvent[] = [];
 
   get isBoosting(): boolean {
     return this.boostTimer > 0;
@@ -151,11 +164,17 @@ export class Kart {
       st.nitroGauge = 0;
       st.boostTimer = NITRO.BOOST_DURATION;
       fwdSpeed = Math.min(fwdSpeed + NITRO.BOOST_KICK_IMPULSE, NITRO.BOOST_MAX_SPEED);
+      st.events.push('nitro');
     }
     if (st.isBoosting) st.boostTimer = Math.max(0, st.boostTimer - dt);
+    if (st.miniBoostTimer > 0) st.miniBoostTimer = Math.max(0, st.miniBoostTimer - dt);
 
     const boosting = st.isBoosting;
+    const miniBoosting = !boosting && st.miniBoostTimer > 0;
     let maxSpeed = boosting ? NITRO.BOOST_MAX_SPEED : KART.MAX_SPEED;
+    if (miniBoosting) {
+      maxSpeed += st.miniBoostTier === 2 ? DRIFT.TIER2_MAX_BONUS : DRIFT.TIER1_MAX_BONUS;
+    }
     if (st.offroad && !boosting) maxSpeed = Math.min(maxSpeed, KART.OFFROAD_MAX_SPEED);
 
     // ---- drift state ----
@@ -164,16 +183,27 @@ export class Kart {
     if (!st.isDrifting && wantsDrift && speedOk) {
       st.isDrifting = true;
       st.driftScore = 0;
+      st.driftTier = 0;
       latSpeed += inp.steer * 2.6; // outward kick to break traction
     } else if (st.isDrifting && (!inp.drift || !speedOk)) {
+      // release: a held tier converts into an instant mini-boost
+      if (st.driftTier > 0 && speedOk) {
+        st.miniBoostTier = st.driftTier;
+        st.miniBoostTimer = st.driftTier === 2 ? DRIFT.TIER2_BOOST_TIME : DRIFT.TIER1_BOOST_TIME;
+        const kick = st.driftTier === 2 ? DRIFT.TIER2_KICK : DRIFT.TIER1_KICK;
+        fwdSpeed = Math.min(fwdSpeed + kick, maxSpeed + kick);
+        st.events.push(st.driftTier === 2 ? 'mini-boost-2' : 'mini-boost-1');
+      }
       st.isDrifting = false;
       st.driftScore = 0;
+      st.driftTier = 0;
     }
 
     // ---- longitudinal ----
     let accel = 0;
-    const engineAccel = boosting ? NITRO.BOOST_ACCEL : KART.ENGINE_ACCEL;
-    const throttle = boosting ? 1 : inp.throttle;
+    let engineAccel = boosting ? NITRO.BOOST_ACCEL : KART.ENGINE_ACCEL;
+    if (miniBoosting) engineAccel += DRIFT.MINI_BOOST_ACCEL;
+    const throttle = boosting || miniBoosting ? 1 : inp.throttle;
     if (throttle > 0 && fwdSpeed < maxSpeed) {
       accel += throttle * engineAccel * (1 - Math.max(0, fwdSpeed) / maxSpeed);
     }
@@ -226,6 +256,13 @@ export class Kart {
       st.driftScore += gained;
       st.totalDriftScore += gained;
       st.nitroGauge = Math.min(NITRO.GAUGE_MAX, st.nitroGauge + gained * DRIFT.GAUGE_PER_SCORE * 10);
+
+      // live tier-up feedback while still sliding
+      const tier = st.driftScore >= DRIFT.TIER2_SCORE ? 2 : st.driftScore >= DRIFT.TIER1_SCORE ? 1 : 0;
+      if (tier > st.driftTier) {
+        st.driftTier = tier;
+        st.events.push(tier === 2 ? 'drift-tier-2' : 'drift-tier-1');
+      }
     }
 
     // ---- write back velocity (keep vertical component: gravity / bumps) ----
@@ -269,13 +306,17 @@ export class Kart {
     );
     this.chassis.rotation.z = THREE.MathUtils.lerp(this.chassis.rotation.z, lean, 0.2);
 
-    // nitro flames
-    const flameOn = this.state.isBoosting;
+    // nitro / mini-boost flames (mini-boost burns smaller)
+    const big = this.state.isBoosting;
+    const mini = !big && this.state.miniBoostTimer > 0;
     for (const f of this.flames) {
-      f.visible = flameOn;
-      if (flameOn) {
+      f.visible = big || mini;
+      if (big) {
         const s = 0.8 + Math.random() * 0.5;
         f.scale.set(s, 1 + Math.random() * 0.8, s);
+      } else if (mini) {
+        const s = 0.4 + Math.random() * 0.3;
+        f.scale.set(s, 0.5 + Math.random() * 0.4, s);
       }
     }
   }

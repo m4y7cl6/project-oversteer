@@ -64,6 +64,8 @@ export class HUD {
     if (state.isDrifting && state.driftScore > 1) {
       this.driftLinger = 1.0;
       this.driftValue.textContent = Math.floor(state.driftScore).toString();
+      this.driftBox.classList.toggle('tier-1', state.driftTier === 1);
+      this.driftBox.classList.toggle('tier-2', state.driftTier === 2);
     } else {
       this.driftLinger -= dt;
     }

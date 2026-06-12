@@ -5,19 +5,36 @@ import { AssetManager } from '../core/AssetManager';
 import { World } from '../core/World';
 import { TrackBuilder } from '../track/TrackBuilder';
 import { TrackManager, Progress } from '../track/TrackManager';
-import { Kart } from '../vehicle/Kart';
+import { Kart, KartEvent } from '../vehicle/Kart';
 import { PlayerController } from '../vehicle/PlayerController';
 import { AIController } from '../vehicle/AIController';
 import { RaceManager, RacerEntry } from '../race/RaceManager';
 import { ChaseCamera } from '../camera/ChaseCamera';
 import { SmokeSystem } from '../effects/SmokeSystem';
-import { EngineAudio } from '../effects/EngineAudio';
+import { GameAudio } from '../effects/GameAudio';
 import { HUD } from '../ui/HUD';
 import { Minimap } from '../ui/Minimap';
 import { Screens } from '../ui/Screens';
 import { PHYSICS, RACE, RACERS } from './config';
+import { AssetManifestEntry } from '../core/AssetManager';
 
 const FIXED_DT = 1 / PHYSICS.TICK_RATE;
+
+/** Semantic sound cue → Kenney sample basename in the asset manifest. */
+const SOUND_FILES: Record<string, string> = {
+  count: 'tick_001',
+  go: 'confirmation_001',
+  lap: 'pluck_001',
+  tier1: 'tick_002',
+  tier2: 'glass_002',
+  mini: 'maximize_004',
+  nitro: 'maximize_008',
+  'impact-a': 'impactMetal_medium_000',
+  'impact-b': 'impactMetal_medium_001',
+  'impact-c': 'impactMetal_medium_002',
+  'impact-heavy': 'impactMetal_heavy_001',
+  finish: 'jingles_NES03',
+};
 
 /**
  * Composition root: owns renderer/scene/physics and wires the ECS-like world
@@ -34,7 +51,7 @@ export class Game {
   private raceManager: RaceManager;
   private chaseCam: ChaseCamera;
   private smoke: SmokeSystem;
-  private audio = new EngineAudio();
+  private audio: GameAudio;
   private hud = new HUD();
   private minimap: Minimap;
   private screens = new Screens();
@@ -46,6 +63,7 @@ export class Game {
   private countdownLeft = 0;
   private lastCountShown = -1;
   private resultsRefresh = 0;
+  private impactCooldown = 0;
   private accumulator = 0;
   private lastTime = performance.now();
 
@@ -53,7 +71,17 @@ export class Game {
     canvas: HTMLCanvasElement,
     private assets: AssetManager,
     kartModels: Map<string, THREE.Object3D> = new Map(),
+    manifest: AssetManifestEntry[] = [],
   ) {
+    const soundSources = new Map<string, string>();
+    for (const [cue, file] of Object.entries(SOUND_FILES)) {
+      const entry = manifest.find(
+        (e) => e.type === 'audio' && e.key.toLowerCase().endsWith(`.${file.toLowerCase()}`),
+      );
+      if (entry) soundSources.set(cue, entry.url);
+    }
+    this.audio = new GameAudio(soundSources);
+
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -142,12 +170,14 @@ export class Game {
   private wireRaceEvents(): void {
     this.raceManager.events = {
       onPlayerLap: (lap, total, lapTime) => {
+        this.audio.play('lap', 0.8);
         const remaining = total - lap;
         if (remaining === 1) this.hud.flashMessage('FINAL LAP!');
         else if (remaining > 1) this.hud.flashMessage(`LAP ${lap + 1}/${total}`);
       },
       onPlayerFinish: () => {
         this.hud.flashMessage('FINISH!');
+        this.audio.play('finish', 0.9);
         this.screens.showResults(this.raceManager.rankings, this.raceManager.player);
       },
     };
@@ -191,8 +221,25 @@ export class Game {
     // handling model + physics step
     if (racing) {
       for (const e of this.entries) e.kart.fixedUpdate(dt);
+
+      // player velocity before/after the solver step ⇒ collision feedback
+      const before = this.playerKart.body.linvel();
+      const bx = before.x, bz = before.z;
       this.physics.step();
+      const after = this.playerKart.body.linvel();
+      const dv = Math.hypot(after.x - bx, after.z - bz);
+      this.impactCooldown = Math.max(0, this.impactCooldown - dt);
+      if (dv > 4 && dv < 20 && this.impactCooldown <= 0) {
+        this.impactCooldown = 0.3;
+        const heavy = dv > 9;
+        const cue = heavy
+          ? 'impact-heavy'
+          : ['impact-a', 'impact-b', 'impact-c'][Math.floor(Math.random() * 3)];
+        this.audio.play(cue, Math.min(1, 0.35 + (dv - 4) / 10));
+      }
+
       this.raceManager.fixedUpdate(dt);
+      this.drainKartEvents();
     }
 
     this.world.fixedUpdate(dt); // hooks for future systems
@@ -204,16 +251,40 @@ export class Game {
     }
   }
 
+  /** Player kart events drive SFX; AI events are discarded (but must be drained). */
+  private drainKartEvents(): void {
+    for (const e of this.entries) {
+      const events = e.kart.state.events;
+      if (events.length === 0) continue;
+      if (e === this.raceManager.player) {
+        for (const ev of events) this.onPlayerKartEvent(ev);
+      }
+      events.length = 0;
+    }
+  }
+
+  private onPlayerKartEvent(ev: KartEvent): void {
+    switch (ev) {
+      case 'drift-tier-1': this.audio.play('tier1', 0.7, 1.1); break;
+      case 'drift-tier-2': this.audio.play('tier2', 0.8); break;
+      case 'mini-boost-1': this.audio.play('mini', 0.9, 1.2); break;
+      case 'mini-boost-2': this.audio.play('mini', 1.0, 0.85); break;
+      case 'nitro': this.audio.play('nitro', 1.0); break;
+    }
+  }
+
   private updateCountdown(dt: number): void {
     if (this.raceManager.state !== 'countdown' || this.countdownLeft <= 0) return;
     this.countdownLeft -= dt;
     const count = Math.ceil(this.countdownLeft);
     if (this.countdownLeft <= 0) {
       this.screens.showCountdown('GO!', true);
+      this.audio.play('go', 0.9);
       this.raceManager.go();
       setTimeout(() => this.screens.hideCountdown(), 700);
     } else if (count !== this.lastCountShown && count <= RACE.COUNTDOWN_SECONDS) {
       this.screens.showCountdown(count.toString());
+      this.audio.play('count', 0.8);
       this.lastCountShown = count;
     }
   }
