@@ -17,6 +17,8 @@ html, body {
   font-family: 'Orbitron', 'Segoe UI', sans-serif;
   color: #fff;
   user-select: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #app { position: relative; width: 100%; height: 100%; }
@@ -153,6 +155,96 @@ html, body {
   font-weight: 900;
   color: var(--danger);
   animation: pulse .4s infinite alternate;
+}
+
+/* ---------- touch controls ---------- */
+
+#touch-controls {
+  position: absolute;
+  inset: 0;
+  display: none; /* enabled via body.touch-mode */
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* visible only while the HUD is up (i.e. racing), never over menus */
+body.touch-mode #hud:not(.hidden) ~ #touch-controls { display: block; }
+
+/* desktop HUD overlaps the thumb zones; lift it on touch devices */
+body.touch-mode #hud-bottom { padding-bottom: 130px; }
+
+#touch-steer {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  display: flex;
+  gap: 16px;
+}
+
+#touch-actions {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.touch-btn {
+  pointer-events: auto;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4);
+  background: rgba(10, 16, 30, .45);
+  color: #fff;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  touch-action: none;
+}
+
+.touch-btn.touch-small { width: 64px; height: 64px; font-size: 18px; }
+
+#touch-drift { border-color: var(--accent2); color: var(--accent2); }
+#touch-nitro { border-color: var(--accent); color: var(--accent); }
+
+.touch-btn.held { background: rgba(0,229,255,.3); transform: scale(.94); }
+
+#rotate-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(4,6,12,.94);
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  line-height: 2;
+}
+
+#rotate-hint span { font-size: 14px; opacity: .6; }
+
+@media (orientation: portrait) {
+  body.touch-mode #rotate-hint { display: flex; }
+}
+
+/* compact HUD on small screens */
+@media (max-width: 900px) {
+  #position-value { font-size: 36px; }
+  #speed-value { font-size: 36px; }
+  #hud-time { font-size: 22px; }
+  #hud-lap { font-size: 16px; }
+  #hud-minimap canvas { width: 110px; height: 110px; }
+  #hud-nitro { width: 150px; }
+  #drift-score { font-size: 20px; }
+  .title { font-size: 48px; }
+  #hud-message { font-size: 30px; }
+  #countdown { font-size: 110px; }
 }
 
 /* ---------- countdown ---------- */

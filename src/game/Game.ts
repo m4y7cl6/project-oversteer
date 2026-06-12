@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { Physics } from '../core/Physics';
 import { Input } from '../core/Input';
+import { TouchControls } from '../core/TouchControls';
 import { AssetManager } from '../core/AssetManager';
 import { World } from '../core/World';
 import { TrackBuilder } from '../track/TrackBuilder';
@@ -47,7 +48,8 @@ export class Game {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private physics = new Physics();
-  private input = new Input();
+  private touch = new TouchControls();
+  private input = new Input(this.touch);
   private world = new World();
 
   private trackManager!: TrackManager;

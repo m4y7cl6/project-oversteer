@@ -35,7 +35,9 @@
 - [ ] Item-free time-trial mode with ghost replay
 - [ ] Elevation support in TrackBuilder (needs road-mesh colliders)
 - [ ] Background music loop
-- [ ] Gamepad support; mobile touch controls
+- [x] Mobile touch controls: auto-accelerate, steer/drift/nitro/brake
+      buttons, portrait rotate hint, compact HUD (media queries)
+- [ ] Gamepad support
 - [ ] Performance pass: instanced scenery, draw-call audit
 
 ## M4 — Multiplayer (future)

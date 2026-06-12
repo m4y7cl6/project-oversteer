@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>NITRO RUSH</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🏎️</text></svg>" />
   <link rel="stylesheet" href="/src/ui/style.css" />
@@ -37,6 +37,18 @@
       <div id="hud-message" class="hidden"></div>
       <div id="wrong-way" class="hidden">WRONG WAY!</div>
     </div>
+    <div id="touch-controls">
+      <div id="touch-steer">
+        <button id="touch-left" class="touch-btn">◀</button>
+        <button id="touch-right" class="touch-btn">▶</button>
+      </div>
+      <div id="touch-actions">
+        <button id="touch-brake" class="touch-btn touch-small">▼</button>
+        <button id="touch-nitro" class="touch-btn touch-small">N</button>
+        <button id="touch-drift" class="touch-btn">DRIFT</button>
+      </div>
+    </div>
+    <div id="rotate-hint"><div>🔄 ROTATE YOUR DEVICE<br /><span>landscape works best</span></div></div>
     <div id="countdown" class="hidden"></div>
     <div id="start-screen">
       <h1 class="title">NITRO<span class="title-accent">RUSH</span></h1>
