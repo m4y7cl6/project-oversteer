@@ -40,6 +40,66 @@
     "type": "gltf"
   },
   {
+    "key": "kenney-impact-sounds.Audio.impactMetal_heavy_001",
+    "url": "assets/kenney-impact-sounds/Audio/impactMetal_heavy_001.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-impact-sounds.Audio.impactMetal_medium_000",
+    "url": "assets/kenney-impact-sounds/Audio/impactMetal_medium_000.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-impact-sounds.Audio.impactMetal_medium_001",
+    "url": "assets/kenney-impact-sounds/Audio/impactMetal_medium_001.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-impact-sounds.Audio.impactMetal_medium_002",
+    "url": "assets/kenney-impact-sounds/Audio/impactMetal_medium_002.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-interface-sounds.Audio.confirmation_001",
+    "url": "assets/kenney-interface-sounds/Audio/confirmation_001.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-interface-sounds.Audio.glass_002",
+    "url": "assets/kenney-interface-sounds/Audio/glass_002.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-interface-sounds.Audio.maximize_004",
+    "url": "assets/kenney-interface-sounds/Audio/maximize_004.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-interface-sounds.Audio.maximize_008",
+    "url": "assets/kenney-interface-sounds/Audio/maximize_008.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-interface-sounds.Audio.pluck_001",
+    "url": "assets/kenney-interface-sounds/Audio/pluck_001.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-interface-sounds.Audio.tick_001",
+    "url": "assets/kenney-interface-sounds/Audio/tick_001.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-interface-sounds.Audio.tick_002",
+    "url": "assets/kenney-interface-sounds/Audio/tick_002.ogg",
+    "type": "audio"
+  },
+  {
+    "key": "kenney-music-jingles.Audio.8-Bit jingles.jingles_NES03",
+    "url": "assets/kenney-music-jingles/Audio/8-Bit jingles/jingles_NES03.ogg",
+    "type": "audio"
+  },
+  {
     "key": "kenney-racing-kit.Models.GLTF format.raceCarWhite",
     "url": "assets/kenney-racing-kit/Models/GLTF format/raceCarWhite.glb",
     "type": "gltf"
