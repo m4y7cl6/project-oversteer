@@ -127,6 +127,7 @@ export class Game {
     this.setTrack(TRACKS[0]);
 
     this.wireUi();
+    this.screens.setupFullscreenHelpers(this.touch.enabled);
     window.addEventListener('resize', () => this.onResize());
     this.screens.setLoading('ready', true);
 

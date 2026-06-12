@@ -352,6 +352,28 @@ body.touch-mode #hud-bottom { padding-bottom: 130px; }
 
 #loading-status { font-size: 12px; opacity: .5; letter-spacing: 2px; }
 
+#fullscreen-button {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #fff;
+  background: rgba(255,255,255,.1);
+  border: 2px solid rgba(255,255,255,.3);
+  border-radius: 10px;
+  padding: 10px 24px;
+  cursor: pointer;
+}
+
+#ios-hint {
+  font-size: 13px;
+  letter-spacing: 1px;
+  opacity: .75;
+  color: var(--accent);
+  text-align: center;
+  padding: 0 16px;
+}
+
 /* ---------- results ---------- */
 
 #results-screen h2 {

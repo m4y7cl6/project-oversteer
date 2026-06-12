@@ -34,6 +34,43 @@ export class Screens {
   /** Set by Game so the menu background can preview the selected track. */
   onTrackChange?: (trackId: string) => void;
 
+  /**
+   * Browser chrome eats screen space on phones. Android gets a fullscreen
+   * button; iPhone Safari has no Fullscreen API, so we hint Add to Home
+   * Screen (the PWA manifest makes that launch fullscreen).
+   */
+  setupFullscreenHelpers(isTouchDevice: boolean): void {
+    if (!isTouchDevice) return;
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches ||
+      (navigator as unknown as { standalone?: boolean }).standalone === true;
+    if (standalone) return; // already chrome-free
+
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (isIOS || !document.documentElement.requestFullscreen) {
+      document.getElementById('ios-hint')?.classList.remove('hidden');
+      return;
+    }
+
+    const btn = document.getElementById('fullscreen-button') as HTMLButtonElement;
+    btn.classList.remove('hidden');
+    btn.addEventListener('click', async () => {
+      try {
+        await document.documentElement.requestFullscreen();
+        // best effort: lock to landscape where supported
+        const orientation = screen.orientation as unknown as {
+          lock?: (o: string) => Promise<void>;
+        };
+        await orientation.lock?.('landscape');
+      } catch {
+        // fullscreen/lock denied: nothing to do
+      }
+    });
+  }
+
   setLoading(text: string, ready: boolean): void {
     this.loadingStatus.textContent = text;
     this.startButton.disabled = !ready;
