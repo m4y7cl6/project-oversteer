@@ -18,6 +18,13 @@ export class GameAudio {
   private buffers = new Map<string, AudioBuffer>();
   private started = false;
 
+  // chiptune sequencer state
+  private musicGain?: GainNode;
+  private musicTimer?: number;
+  private musicStep = 0;
+  private musicNextTime = 0;
+  musicMuted = false;
+
   constructor(private sources: Map<string, string>) {}
 
   /** Must be called from a user gesture (the START button). */
@@ -68,6 +75,7 @@ export class GameAudio {
 
       noise.start();
 
+      this.startMusic();
       void this.decodeAll();
     } catch {
       // audio is decorative; carry on silently if WebAudio is unavailable
@@ -112,6 +120,55 @@ export class GameAudio {
 
   resume(): void {
     this.ctx?.resume();
+  }
+
+  toggleMusic(): void {
+    this.musicMuted = !this.musicMuted;
+    this.musicGain?.gain.setTargetAtTime(
+      this.musicMuted ? 0 : 0.5, this.ctx?.currentTime ?? 0, 0.05,
+    );
+  }
+
+  /**
+   * Tiny procedural chiptune loop (no assets): square-wave arpeggio over a
+   * triangle bass in A minor pentatonic, 16 steps at 112 BPM, scheduled
+   * ahead of time on the audio clock.
+   */
+  private startMusic(): void {
+    if (!this.ctx || !this.master) return;
+    this.musicGain = this.ctx.createGain();
+    this.musicGain.gain.value = this.musicMuted ? 0 : 0.5;
+    this.musicGain.connect(this.master);
+
+    const stepDur = 60 / 112 / 2; // eighth notes
+    // A minor pentatonic riff (Hz); 0 = rest
+    const lead = [220, 0, 262, 294, 330, 0, 294, 262, 220, 0, 196, 220, 330, 392, 330, 294];
+    const bass = [110, 110, 0, 110, 98, 98, 0, 98, 87, 87, 0, 87, 98, 98, 110, 98];
+
+    this.musicNextTime = this.ctx.currentTime + 0.1;
+    const scheduleNote = (freq: number, t: number, dur: number, type: OscillatorType, vol: number) => {
+      if (!freq || !this.ctx || !this.musicGain) return;
+      const osc = this.ctx.createOscillator();
+      osc.type = type;
+      osc.frequency.value = freq;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.connect(g).connect(this.musicGain);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+    };
+
+    this.musicTimer = window.setInterval(() => {
+      if (!this.ctx) return;
+      while (this.musicNextTime < this.ctx.currentTime + 0.35) {
+        const i = this.musicStep % 16;
+        scheduleNote(lead[i], this.musicNextTime, stepDur * 0.9, 'square', 0.10);
+        scheduleNote(bass[i], this.musicNextTime, stepDur * 0.95, 'triangle', 0.16);
+        this.musicStep++;
+        this.musicNextTime += stepDur;
+      }
+    }, 150);
   }
 
   private async decodeAll(): Promise<void> {

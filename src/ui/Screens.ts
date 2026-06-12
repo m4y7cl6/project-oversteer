@@ -12,8 +12,16 @@ export class Screens {
 
   selectedLaps = 3;
   selectedTrack = 'sunrise';
+  selectedMode: 'race' | 'timetrial' = 'race';
 
   constructor() {
+    document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        this.selectedMode = btn.dataset.mode as 'race' | 'timetrial';
+      });
+    });
     document.querySelectorAll<HTMLButtonElement>('.lap-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.lap-btn').forEach((b) => b.classList.remove('selected'));

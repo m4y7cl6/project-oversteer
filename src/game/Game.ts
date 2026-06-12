@@ -13,6 +13,7 @@ import { Kart, KartEvent } from '../vehicle/Kart';
 import { PlayerController } from '../vehicle/PlayerController';
 import { AIController } from '../vehicle/AIController';
 import { RaceManager, RacerEntry } from '../race/RaceManager';
+import { GhostSystem } from '../race/GhostSystem';
 import { ChaseCamera } from '../camera/ChaseCamera';
 import { SmokeSystem } from '../effects/SmokeSystem';
 import { GameAudio } from '../effects/GameAudio';
@@ -71,6 +72,9 @@ export class Game {
   private trackGroup?: THREE.Group;
   private scenery?: Scenery;
   private trackColliders: RAPIER.Collider[] = [];
+
+  private ghost = new GhostSystem();
+  private mode: 'race' | 'timetrial' = 'race';
 
   private countdownLeft = 0;
   private lastCountShown = -1;
@@ -182,6 +186,7 @@ export class Game {
   private startRace(): void {
     this.setTrack(TRACKS.find((t) => t.id === this.screens.selectedTrack) ?? TRACKS[0]);
     this.trackManager.totalLaps = this.screens.selectedLaps;
+    this.mode = this.screens.selectedMode;
 
     // fresh progress state for every racer
     for (const e of this.entries) {
@@ -191,7 +196,22 @@ export class Game {
       e.kart.state.totalDriftScore = 0;
     }
 
-    this.raceManager.setup(this.entries);
+    if (this.mode === 'timetrial') {
+      // solo run: AI park far off-track, invisible; race state tracks player only
+      this.entries.forEach((e, i) => {
+        if (i === 0) return;
+        e.kart.placeAt(new THREE.Vector3(400, 0.4, 380 + i * 8), 0);
+        e.kart.visual.visible = false;
+      });
+      this.raceManager.setup([this.entries[0]]);
+      this.ghost.start(
+        this.scene, this.playerKart, this.currentTrackId, this.screens.selectedLaps,
+      );
+    } else {
+      for (const e of this.entries) e.kart.visual.visible = true;
+      this.ghost.dispose(this.scene);
+      this.raceManager.setup(this.entries);
+    }
     this.screens.hideStart();
     this.screens.hideResults();
     this.hud.show();
@@ -212,8 +232,13 @@ export class Game {
         else if (remaining > 1) this.hud.flashMessage(`LAP ${lap + 1}/${total}`);
       },
       onPlayerFinish: () => {
-        this.hud.flashMessage('FINISH!');
         this.audio.play('finish', 0.9);
+        if (this.mode === 'timetrial') {
+          const newRecord = this.ghost.finish(this.raceManager.player.progress.finishTime);
+          this.hud.flashMessage(newRecord ? 'NEW RECORD!' : 'FINISH!', 3);
+        } else {
+          this.hud.flashMessage('FINISH!');
+        }
         this.screens.showResults(this.raceManager.rankings, this.raceManager.player);
       },
     };
@@ -237,6 +262,8 @@ export class Game {
     const frameDt = Math.min((now - this.lastTime) / 1000, 0.1);
     this.lastTime = now;
 
+    this.input.pollGamepad();
+    if (this.input.muteToggle) this.audio.toggleMusic();
     this.updateCountdown(frameDt);
 
     // fixed-step simulation
@@ -256,9 +283,9 @@ export class Game {
       this.raceManager.state === 'postrace';
     const playerDriving = this.raceManager.state === 'racing';
 
-    // controllers write intents
+    // controllers write intents (AI sit out time trials)
     this.playerController.fixedUpdate(playerDriving);
-    for (const e of this.entries) e.ai?.fixedUpdate(dt, racing);
+    for (const e of this.entries) e.ai?.fixedUpdate(dt, racing && this.mode === 'race');
 
     // handling model + physics step
     if (racing) {
@@ -282,6 +309,10 @@ export class Game {
 
       this.raceManager.fixedUpdate(dt);
       this.drainKartEvents();
+
+      if (this.mode === 'timetrial' && !this.raceManager.player.progress.finished) {
+        this.ghost.recordTick(this.playerKart);
+      }
     }
 
     this.world.fixedUpdate(dt); // hooks for future systems
@@ -338,6 +369,7 @@ export class Game {
     this.chaseCam.update(this.playerKart, dt);
     this.smoke.update(this.entries.map((e) => e.kart), dt);
     this.audio.update(this.playerKart.state);
+    if (this.mode === 'timetrial') this.ghost.update(this.raceManager.raceTime);
 
     const rm = this.raceManager;
     if (rm.state === 'racing' || rm.state === 'postrace') {

@@ -295,7 +295,7 @@ body.touch-mode #hud-bottom { padding-bottom: 130px; }
 
 .lap-options, .track-options { display: flex; gap: 14px; justify-content: center; }
 
-.track-btn {
+.track-btn, .mode-btn {
   font-family: inherit;
   font-size: 15px;
   font-weight: 700;
@@ -308,7 +308,7 @@ body.touch-mode #hud-bottom { padding-bottom: 130px; }
   cursor: pointer;
 }
 
-.track-btn.selected { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,.12); }
+.track-btn.selected, .mode-btn.selected { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,.12); }
 
 .lap-btn {
   width: 64px; height: 64px;

@@ -32,12 +32,14 @@
       apex pylons (all visual; placement derived from track curvature)
 - [x] Second track (THUNDER LOOP) + menu track select; tracks defined as
       data (src/track/tracks.ts), full teardown/rebuild on switch
-- [ ] Item-free time-trial mode with ghost replay
+- [x] Time-trial mode with persistent best-run ghost replay (localStorage,
+      20 Hz pose recording, translucent kart playback)
 - [ ] Elevation support in TrackBuilder (needs road-mesh colliders)
-- [ ] Background music loop
+- [x] Background music: procedural chiptune loop (WebAudio sequencer),
+      M to toggle
 - [x] Mobile touch controls: auto-accelerate, steer/drift/nitro/brake
       buttons, portrait rotate hint, compact HUD (media queries)
-- [ ] Gamepad support
+- [x] Gamepad support (standard mapping: stick steer, RT/LT, A drift, B/X nitro)
 - [ ] Performance pass: instanced scenery, draw-call audit
 
 ## M4 — Multiplayer (future)
