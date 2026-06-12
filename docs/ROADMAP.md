@@ -30,8 +30,10 @@
 - [x] Track scenery from Kenney Racing Kit: start-light gantry, flags,
       banner towers on the big corners, grandstands, light posts, trees,
       apex pylons (all visual; placement derived from track curvature)
+- [x] Second track (THUNDER LOOP) + menu track select; tracks defined as
+      data (src/track/tracks.ts), full teardown/rebuild on switch
 - [ ] Item-free time-trial mode with ghost replay
-- [ ] Second track + track select; elevation support in TrackBuilder
+- [ ] Elevation support in TrackBuilder (needs road-mesh colliders)
 - [ ] Background music loop
 - [ ] Gamepad support; mobile touch controls
 - [ ] Performance pass: instanced scenery, draw-call audit

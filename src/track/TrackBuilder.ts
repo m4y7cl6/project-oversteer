@@ -3,33 +3,16 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 import { TrackData, TrackSample } from './TrackData';
 import { TRACK } from '../game/config';
 import { roadTexture, checkerTexture, barrierTexture, grassTexture } from './textures';
-
-/** Control polygon of the circuit (XZ plane, direction of travel = array order). */
-const CONTROL_POINTS: [number, number][] = [
-  [0, 0],
-  [60, 0],
-  [110, 14],
-  [142, 50],
-  [132, 96],
-  [92, 122],
-  [42, 110],
-  [12, 142],
-  [-28, 164],
-  [-72, 144],
-  [-82, 96],
-  [-98, 46],
-  [-62, 6],
-  [-30, -4],
-];
+import { TrackDefinition } from './tracks';
 
 /**
- * Builds the circuit: centerline samples, road/wall/scenery meshes and the
- * static Rapier colliders (ground + barriers).
+ * Builds a circuit from a TrackDefinition: centerline samples,
+ * road/wall/scenery meshes and the static Rapier colliders (ground + barriers).
  */
 export class TrackBuilder {
-  build(): { data: TrackData; group: THREE.Group } {
+  build(def: TrackDefinition): { data: TrackData; group: THREE.Group } {
     const curve = new THREE.CatmullRomCurve3(
-      CONTROL_POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z)),
+      def.controlPoints.map(([x, z]) => new THREE.Vector3(x, 0, z)),
       true,
       'centripetal',
     );
@@ -46,7 +29,7 @@ export class TrackBuilder {
     const data = new TrackData(samples, totalLength, checkpointIndices, TRACK.ROAD_HALF_WIDTH);
 
     const group = new THREE.Group();
-    group.add(this.buildGround());
+    group.add(this.buildGround(data));
     group.add(this.buildRoad(data));
     group.add(this.buildStartLine(data));
     group.add(this.buildWalls(data));
@@ -54,18 +37,22 @@ export class TrackBuilder {
     const gate = this.buildStartGate(data);
     gate.name = 'start-gate';
     group.add(gate);
-    const trees = this.buildTrees(data);
+    const trees = this.buildTrees(data, def.seed);
     trees.name = 'trees';
     group.add(trees);
     return { data, group };
   }
 
-  /** Static physics: flat ground plus barrier segments along both road edges. */
-  buildPhysics(data: TrackData, rapier: typeof RAPIER, world: RAPIER.World): void {
+  /**
+   * Static physics: flat ground plus barrier segments along both road edges.
+   * Returns the created colliders so a track switch can remove them.
+   */
+  buildPhysics(data: TrackData, rapier: typeof RAPIER, world: RAPIER.World): RAPIER.Collider[] {
+    const colliders: RAPIER.Collider[] = [];
     // ground: one huge cuboid whose top face is y=0
-    world.createCollider(
+    colliders.push(world.createCollider(
       rapier.ColliderDesc.cuboid(500, 1, 500).setTranslation(0, -1, 0).setFriction(1.0),
-    );
+    ));
 
     // barrier colliders: one cuboid per stretch of samples, per side
     const step = 6;
@@ -80,15 +67,16 @@ export class TrackBuilder {
         const len = pa.distanceTo(pb);
         const angle = Math.atan2(pb.x - pa.x, pb.z - pa.z);
         const rot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-        world.createCollider(
+        colliders.push(world.createCollider(
           rapier.ColliderDesc.cuboid(0.4, TRACK.WALL_HEIGHT, len / 2 + 0.5)
             .setTranslation(mid.x, TRACK.WALL_HEIGHT, mid.z)
             .setRotation({ x: rot.x, y: rot.y, z: rot.z, w: rot.w })
             .setFriction(0.1)
             .setRestitution(0.4),
-        );
+        ));
       }
     }
+    return colliders;
   }
 
   private sampleCurve(curve: THREE.CatmullRomCurve3, count: number): TrackSample[] {
@@ -121,13 +109,14 @@ export class TrackBuilder {
     return samples;
   }
 
-  private buildGround(): THREE.Mesh {
+  private buildGround(data: TrackData): THREE.Mesh {
+    const { center } = trackBounds(data);
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(1000, 1000),
       new THREE.MeshLambertMaterial({ map: grassTexture() }),
     );
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(20, -0.02, 75);
+    mesh.position.set(center.x, -0.02, center.z);
     return mesh;
   }
 
@@ -230,7 +219,7 @@ export class TrackBuilder {
     return group;
   }
 
-  private buildTrees(data: TrackData): THREE.Group {
+  private buildTrees(data: TrackData, seed: number): THREE.Group {
     const group = new THREE.Group();
     const trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, 1.6, 6);
     const crownGeo = new THREE.ConeGeometry(1.6, 3.6, 7);
@@ -238,13 +227,14 @@ export class TrackBuilder {
     const crownMat = new THREE.MeshLambertMaterial({ color: 0x2e7d32 });
     const crownMat2 = new THREE.MeshLambertMaterial({ color: 0x388e3c });
 
-    const rand = mulberry32(1337);
+    const { min, max } = trackBounds(data, 60);
+    const rand = mulberry32(seed);
     let placed = 0;
     let attempts = 0;
     while (placed < 90 && attempts < 1200) {
       attempts++;
-      const x = -180 + rand() * 400;
-      const z = -80 + rand() * 320;
+      const x = min.x + rand() * (max.x - min.x);
+      const z = min.z + rand() * (max.z - min.z);
       const p = new THREE.Vector3(x, 0, z);
       // keep trees off the road corridor
       let minD = Infinity;
@@ -266,6 +256,21 @@ export class TrackBuilder {
     }
     return group;
   }
+}
+
+/** Planar bounds of the centerline, padded by `margin` meters. */
+export function trackBounds(data: TrackData, margin = 0): {
+  min: THREE.Vector3; max: THREE.Vector3; center: THREE.Vector3;
+} {
+  const min = new THREE.Vector3(Infinity, 0, Infinity);
+  const max = new THREE.Vector3(-Infinity, 0, -Infinity);
+  for (const s of data.samples) {
+    min.x = Math.min(min.x, s.pos.x); min.z = Math.min(min.z, s.pos.z);
+    max.x = Math.max(max.x, s.pos.x); max.z = Math.max(max.z, s.pos.z);
+  }
+  min.x -= margin; min.z -= margin;
+  max.x += margin; max.z += margin;
+  return { min, max, center: min.clone().add(max).multiplyScalar(0.5) };
 }
 
 /** Deterministic PRNG so scenery layout is stable between runs. */

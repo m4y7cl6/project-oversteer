@@ -1,10 +1,12 @@
 /* AI soak test: start a 1-lap race with no player input and verify all 7 AI
  * navigate the full circuit (ordered checkpoints) and finish.
- * Usage: node scripts/soak-test.cjs
+ * Usage: node scripts/soak-test.cjs            (default track)
+ *        TRACK=thunder node scripts/soak-test.cjs
  */
 const { chromium } = require('playwright-core');
 
 const URL = process.env.GAME_URL || 'http://localhost:5173';
+const TRACK = process.env.TRACK || '';
 
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -14,6 +16,10 @@ const URL = process.env.GAME_URL || 'http://localhost:5173';
 
   await page.goto(URL, { waitUntil: 'load', timeout: 30000 });
   await page.waitForSelector('#start-button:not([disabled])', { timeout: 30000 });
+  if (TRACK) {
+    await page.click(`.track-btn[data-track="${TRACK}"]`);
+    await page.waitForTimeout(600);
+  }
   await page.click('.lap-btn[data-laps="1"]');
   await page.click('#start-button');
 

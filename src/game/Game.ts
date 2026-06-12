@@ -1,10 +1,12 @@
 import * as THREE from 'three';
+import type RAPIER from '@dimforge/rapier3d-compat';
 import { Physics } from '../core/Physics';
 import { Input } from '../core/Input';
 import { AssetManager } from '../core/AssetManager';
 import { World } from '../core/World';
 import { TrackBuilder } from '../track/TrackBuilder';
 import { Scenery } from '../track/Scenery';
+import { TRACKS, TrackDefinition } from '../track/tracks';
 import { TrackManager, Progress } from '../track/TrackManager';
 import { Kart, KartEvent } from '../vehicle/Kart';
 import { PlayerController } from '../vehicle/PlayerController';
@@ -48,18 +50,25 @@ export class Game {
   private input = new Input();
   private world = new World();
 
-  private trackManager: TrackManager;
-  private raceManager: RaceManager;
+  private trackManager!: TrackManager;
+  private raceManager!: RaceManager;
   private chaseCam: ChaseCamera;
   private smoke: SmokeSystem;
   private audio: GameAudio;
   private hud = new HUD();
-  private minimap: Minimap;
+  private minimap!: Minimap;
   private screens = new Screens();
 
-  private playerKart: Kart;
-  private playerController: PlayerController;
+  private playerKart!: Kart;
+  private playerController!: PlayerController;
   private entries: RacerEntry[] = [];
+  private models: Map<string, THREE.Object3D>;
+
+  // current track (rebuilt by setTrack)
+  private currentTrackId = '';
+  private trackGroup?: THREE.Group;
+  private scenery?: Scenery;
+  private trackColliders: RAPIER.Collider[] = [];
 
   private countdownLeft = 0;
   private lastCountShown = -1;
@@ -96,46 +105,27 @@ export class Game {
     sun.position.set(80, 120, 40);
     this.scene.add(sun);
 
-    // track (visuals + static physics) + Racing Kit set dressing
-    const builder = new TrackBuilder();
-    const { data, group } = builder.build();
-    this.scene.add(group);
-    builder.buildPhysics(data, Physics.api, this.physics.world);
-    new Scenery(this.scene, data, kartModels, group);
-    this.trackManager = new TrackManager(data, 3);
-    this.raceManager = new RaceManager(this.trackManager);
+    this.models = kartModels;
 
-    // karts: entry 0 is the player, the rest AI
+    // karts: entry 0 is the player, the rest AI (controllers wired per track)
     for (let i = 0; i < RACE.KART_COUNT; i++) {
       const spec = RACERS[i % RACERS.length];
       const template = spec.model ? kartModels.get(spec.model) : undefined;
       const kart = new Kart(this.physics, spec, i === 0, template);
       this.scene.add(kart.visual);
-      const entry: RacerEntry = { kart, progress: new Progress() };
-      if (i > 0) {
-        entry.ai = new AIController(kart, data, () => this.entries.map((e) => e.kart));
-      }
-      this.entries.push(entry);
-      this.world.createEntity(spec.name).add(kart).add(entry.progress);
+      this.entries.push({ kart, progress: new Progress() });
+      this.world.createEntity(spec.name).add(kart);
     }
     this.playerKart = this.entries[0].kart;
     this.playerController = new PlayerController(this.input, this.playerKart);
 
     this.chaseCam = new ChaseCamera(window.innerWidth / window.innerHeight);
     this.smoke = new SmokeSystem(this.scene);
-    this.minimap = new Minimap(
-      document.getElementById('minimap-canvas') as HTMLCanvasElement,
-      data,
-    );
 
-    this.wireRaceEvents();
+    this.setTrack(TRACKS[0]);
+
     this.wireUi();
     window.addEventListener('resize', () => this.onResize());
-
-    // idle pose for the menu background
-    this.raceManager.setup(this.entries);
-    this.raceManager.state = 'idle';
-    this.chaseCam.snapTo(this.playerKart);
     this.screens.setLoading('ready', true);
 
     // debug/automation handle (used by scripts/smoke-test & soak tests)
@@ -146,7 +136,48 @@ export class Game {
 
   // ---------------- race lifecycle ----------------
 
+  /** (Re)build the circuit: visuals, colliders, scenery, managers, AI, minimap. */
+  private setTrack(def: TrackDefinition): void {
+    if (this.currentTrackId === def.id) return;
+    this.currentTrackId = def.id;
+
+    // tear down the previous track
+    this.trackGroup?.removeFromParent();
+    this.scenery?.dispose();
+    for (const c of this.trackColliders) this.physics.world.removeCollider(c, false);
+    this.trackColliders = [];
+
+    const builder = new TrackBuilder();
+    const { data, group } = builder.build(def);
+    this.trackGroup = group;
+    this.scene.add(group);
+    this.trackColliders = builder.buildPhysics(data, Physics.api, this.physics.world);
+    this.scenery = new Scenery(this.scene, data, this.models, group, def.seed);
+
+    this.trackManager = new TrackManager(data, 3);
+    this.raceManager = new RaceManager(this.trackManager);
+    this.wireRaceEvents();
+
+    // AI follow the new centerline
+    this.entries.forEach((e, i) => {
+      if (i > 0) {
+        e.ai = new AIController(e.kart, data, () => this.entries.map((x) => x.kart));
+      }
+    });
+
+    this.minimap = new Minimap(
+      document.getElementById('minimap-canvas') as HTMLCanvasElement,
+      data,
+    );
+
+    // idle pose on the new grid for the menu background
+    this.raceManager.setup(this.entries);
+    this.raceManager.state = 'idle';
+    this.chaseCam.snapTo(this.playerKart);
+  }
+
   private startRace(): void {
+    this.setTrack(TRACKS.find((t) => t.id === this.screens.selectedTrack) ?? TRACKS[0]);
     this.trackManager.totalLaps = this.screens.selectedLaps;
 
     // fresh progress state for every racer
@@ -188,6 +219,12 @@ export class Game {
   private wireUi(): void {
     this.screens.onStart(() => this.startRace());
     this.screens.onRestart(() => this.startRace());
+    // switching tracks in the menu rebuilds the idle backdrop immediately
+    this.screens.onTrackChange = (id) => {
+      if (this.raceManager.state === 'idle') {
+        this.setTrack(TRACKS.find((t) => t.id === id) ?? TRACKS[0]);
+      }
+    };
   }
 
   // ---------------- main loop ----------------

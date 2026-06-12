@@ -11,6 +11,7 @@ export class Screens {
   private resultsBody = document.getElementById('results-body')!;
 
   selectedLaps = 3;
+  selectedTrack = 'sunrise';
 
   constructor() {
     document.querySelectorAll<HTMLButtonElement>('.lap-btn').forEach((btn) => {
@@ -20,7 +21,18 @@ export class Screens {
         this.selectedLaps = parseInt(btn.dataset.laps!, 10);
       });
     });
+    document.querySelectorAll<HTMLButtonElement>('.track-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.track-btn').forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        this.selectedTrack = btn.dataset.track!;
+        this.onTrackChange?.(this.selectedTrack);
+      });
+    });
   }
+
+  /** Set by Game so the menu background can preview the selected track. */
+  onTrackChange?: (trackId: string) => void;
 
   setLoading(text: string, ready: boolean): void {
     this.loadingStatus.textContent = text;

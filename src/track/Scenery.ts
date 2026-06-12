@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TrackData } from './TrackData';
 import { TRACK } from '../game/config';
-import { mulberry32 } from './TrackBuilder';
+import { mulberry32, trackBounds } from './TrackBuilder';
 
 /** Racing Kit models the scenery dresser wants from the asset manifest. */
 export const SCENERY_MODELS = [
@@ -38,6 +38,7 @@ export class Scenery {
     private data: TrackData,
     private models: Map<string, THREE.Object3D>,
     trackGroup: THREE.Group,
+    private seed = 1337,
   ) {
     this.group.name = 'scenery';
     scene.add(this.group);
@@ -53,6 +54,11 @@ export class Scenery {
     if (this.placeTrees()) {
       trackGroup.getObjectByName('trees')?.removeFromParent();
     }
+  }
+
+  /** Remove all placed props (track switch). */
+  dispose(): void {
+    this.group.removeFromParent();
   }
 
   /**
@@ -174,13 +180,14 @@ export class Scenery {
 
   private placeTrees(): boolean {
     if (!this.models.has('treeLarge') || !this.models.has('treeSmall')) return false;
-    const rand = mulberry32(1337);
+    const { min, max } = trackBounds(this.data, 60);
+    const rand = mulberry32(this.seed);
     let placed = 0;
     let attempts = 0;
     const p = new THREE.Vector3();
     while (placed < 90 && attempts < 1200) {
       attempts++;
-      p.set(-180 + rand() * 400, 0, -80 + rand() * 320);
+      p.set(min.x + rand() * (max.x - min.x), 0, min.z + rand() * (max.z - min.z));
       let minD = Infinity;
       for (let i = 0; i < this.data.sampleCount; i += 4) {
         minD = Math.min(minD, this.data.samples[i].pos.distanceToSquared(p));
