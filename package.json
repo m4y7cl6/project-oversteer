@@ -1,0 +1,25 @@
+{
+  "name": "project-oversteer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NITRO RUSH - browser 3D kart racing prototype (Three.js + Rapier)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "assets:download": "ts-node --transpile-only scripts/download-assets.ts",
+    "assets:optimize": "ts-node --transpile-only scripts/optimize-assets.ts",
+    "assets:build": "ts-node --transpile-only scripts/build-assets.ts"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "0.11.2",
+    "three": "0.160.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.0",
+    "@types/three": "0.160.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "vite": "^4.5.2"
+  }
+}
