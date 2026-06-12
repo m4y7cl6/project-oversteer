@@ -3,6 +3,7 @@ import { Physics } from './core/Physics';
 import { AssetManager, AssetManifestEntry } from './core/AssetManager';
 import { Game } from './game/Game';
 import { RACERS } from './game/config';
+import { SCENERY_MODELS } from './track/Scenery';
 
 async function fetchManifest(): Promise<AssetManifestEntry[]> {
   try {
@@ -15,16 +16,19 @@ async function fetchManifest(): Promise<AssetManifestEntry[]> {
 }
 
 /**
- * Load the kart models named in RACERS from the published asset manifest.
- * Missing manifest / failed loads are fine — those karts fall back to the
- * procedural mesh.
+ * Load the kart models named in RACERS plus the scenery props from the
+ * published asset manifest. Missing manifest / failed loads are fine — karts
+ * fall back to procedural meshes and scenery simply stays procedural.
  */
-async function loadKartModels(
+async function loadModels(
   assets: AssetManager,
   manifest: AssetManifestEntry[],
 ): Promise<Map<string, THREE.Object3D>> {
   const models = new Map<string, THREE.Object3D>();
-  const wanted = [...new Set(RACERS.map((r) => r.model).filter((m): m is string => !!m))];
+  const wanted = [...new Set([
+    ...RACERS.map((r) => r.model).filter((m): m is string => !!m),
+    ...SCENERY_MODELS,
+  ])];
   await Promise.all(wanted.map(async (name) => {
     const entry = manifest.find(
       (e) => e.type === 'gltf' && e.key.toLowerCase().endsWith(`.${name.toLowerCase()}`),
@@ -49,10 +53,10 @@ async function boot(): Promise<void> {
     status.textContent = 'loading models...';
     const assets = new AssetManager();
     const manifest = await fetchManifest();
-    const kartModels = await loadKartModels(assets, manifest);
+    const models = await loadModels(assets, manifest);
 
     const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
-    new Game(canvas, assets, kartModels, manifest);
+    new Game(canvas, assets, models, manifest);
   } catch (err) {
     console.error(err);
     status.textContent = 'failed to start — see console';

@@ -32,7 +32,7 @@ jobs:
         continue-on-error: true
         run: |
           npm run assets:download
-          node -r ts-node/register/transpile-only scripts/optimize-assets.ts --filter "kart-oo|race-future|race\.glb|raceCarWhite|tick_001|tick_002|confirmation_001|pluck_001|glass_002|maximize_004|maximize_008|impactMetal_medium_00[012]|impactMetal_heavy_001|jingles_NES03"
+          node -r ts-node/register/transpile-only scripts/optimize-assets.ts --filter "kart-oo|race-future|race\.glb|raceCarWhite|tick_001|tick_002|confirmation_001|pluck_001|glass_002|maximize_004|maximize_008|impactMetal_medium_00[012]|impactMetal_heavy_001|jingles_NES03|overheadLights|flagCheckers\.|flagRed|flagGreen|bannerTower|grandStand\.|grandStandCovered\.|lightPostModern|treeLarge|treeSmall|pylon"
           npm run assets:build
 
       - run: npm run build

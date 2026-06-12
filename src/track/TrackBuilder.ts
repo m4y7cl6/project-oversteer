@@ -50,8 +50,13 @@ export class TrackBuilder {
     group.add(this.buildRoad(data));
     group.add(this.buildStartLine(data));
     group.add(this.buildWalls(data));
-    group.add(this.buildStartGate(data));
-    group.add(this.buildTrees(data));
+    // named so Scenery can swap them for glTF versions when assets exist
+    const gate = this.buildStartGate(data);
+    gate.name = 'start-gate';
+    group.add(gate);
+    const trees = this.buildTrees(data);
+    trees.name = 'trees';
+    group.add(trees);
     return { data, group };
   }
 
@@ -264,7 +269,7 @@ export class TrackBuilder {
 }
 
 /** Deterministic PRNG so scenery layout is stable between runs. */
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed;
   return () => {
     a |= 0;

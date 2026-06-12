@@ -4,6 +4,7 @@ import { Input } from '../core/Input';
 import { AssetManager } from '../core/AssetManager';
 import { World } from '../core/World';
 import { TrackBuilder } from '../track/TrackBuilder';
+import { Scenery } from '../track/Scenery';
 import { TrackManager, Progress } from '../track/TrackManager';
 import { Kart, KartEvent } from '../vehicle/Kart';
 import { PlayerController } from '../vehicle/PlayerController';
@@ -95,11 +96,12 @@ export class Game {
     sun.position.set(80, 120, 40);
     this.scene.add(sun);
 
-    // track (visuals + static physics)
+    // track (visuals + static physics) + Racing Kit set dressing
     const builder = new TrackBuilder();
     const { data, group } = builder.build();
     this.scene.add(group);
     builder.buildPhysics(data, Physics.api, this.physics.world);
+    new Scenery(this.scene, data, kartModels, group);
     this.trackManager = new TrackManager(data, 3);
     this.raceManager = new RaceManager(this.trackManager);
 

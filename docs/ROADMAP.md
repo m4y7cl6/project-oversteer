@@ -27,7 +27,9 @@
       release boost, spark particles, HUD tier colors
 - [x] SFX: Kenney CC0 one-shots (impacts, countdown, lap, boosts, finish
       jingle) + procedural engine/skid/nitro noise
-- [ ] Track scenery from Kenney Racing Kit (flags, barriers, trees, grandstand)
+- [x] Track scenery from Kenney Racing Kit: start-light gantry, flags,
+      banner towers on the big corners, grandstands, light posts, trees,
+      apex pylons (all visual; placement derived from track curvature)
 - [ ] Item-free time-trial mode with ghost replay
 - [ ] Second track + track select; elevation support in TrackBuilder
 - [ ] Background music loop
