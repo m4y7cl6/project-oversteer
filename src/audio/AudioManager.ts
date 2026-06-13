@@ -153,6 +153,7 @@ export class AudioManager {
       purchase: { freqs: [523, 659, 784, 1047], dur: 0.08, type: 'square' },
       denied: { freqs: [196, 165], dur: 0.12, type: 'sawtooth' },
       click: { freqs: [880], dur: 0.04, type: 'square' },
+      bump: { freqs: [110, 75], dur: 0.12, type: 'sawtooth' },
     };
     const def = NOTES[name];
     if (!def || !this.ctx || !this.sfxBus) return;

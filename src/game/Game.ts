@@ -97,6 +97,7 @@ export class Game {
   private net?: NetClient;
   private onlineRace = false;
   private netTick = 0;
+  private onlineHitCooldown = 0;
   /** peer id → kart driven by network state (interpolation buffer). */
   private remotes = new Map<number, {
     kart: Kart;
@@ -489,6 +490,55 @@ export class Game {
     };
   }
 
+  /**
+   * Proximity-based collision for remote karts (their physics bodies are
+   * parked off-track — only their visuals represent their true position).
+   * Called each fixed tick before physics.step() so both clients feel a bump.
+   */
+  private applyOnlineCollisions(dt: number): void {
+    // Check radius is intentionally larger than kart width to absorb lag latency
+    // (at 150 ms lag + 15 m/s speed, position error ≈ 2.25 m).
+    const RADIUS = 2.8;
+    const PUSH = 1800; // impulse [N·s]; kart mass = 180 kg → ~10 m/s delta at full overlap
+
+    this.onlineHitCooldown = Math.max(0, this.onlineHitCooldown - dt);
+    const pt = this.playerKart.body.translation();
+
+    for (const r of this.remotes.values()) {
+      const vp = r.kart.visual.position;
+      const dx = pt.x - vp.x;
+      const dz = pt.z - vp.z;
+      const dist2 = dx * dx + dz * dz;
+      if (dist2 < 0.01 || dist2 >= RADIUS * RADIUS) continue;
+
+      const dist = Math.sqrt(dist2);
+      const nx = dx / dist;
+      const nz = dz / dist;
+      const overlap = (RADIUS - dist) / RADIUS; // 0..1
+
+      // repulsion impulse — pushes player away from remote kart
+      this.playerKart.body.applyImpulse(
+        { x: nx * PUSH * overlap, y: 0, z: nz * PUSH * overlap },
+        true,
+      );
+
+      // cancel the velocity component going toward the remote (prevents tunnelling)
+      const vel = this.playerKart.body.linvel();
+      const approaching = -(vel.x * nx + vel.z * nz); // positive = moving toward remote
+      if (approaching > 0) {
+        this.playerKart.body.setLinvel(
+          { x: vel.x + nx * approaching * 0.55, y: vel.y, z: vel.z + nz * approaching * 0.55 },
+          true,
+        );
+      }
+
+      if (this.onlineHitCooldown <= 0 && overlap > 0.08) {
+        this.onlineHitCooldown = 0.4;
+        this.audio.play('bump', Math.min(1, 0.5 + overlap * 0.6));
+      }
+    }
+  }
+
   /** Dress the player kart as the profile's vehicle and apply its physics. */
   private applyPlayerVehicle(): void {
     const def = vehicleById(this.profile.selectedVehicleId);
@@ -687,6 +737,7 @@ export class Game {
     // handling model + physics step
     if (racing) {
       for (const e of this.entries) e.kart.fixedUpdate(dt);
+      if (this.onlineRace) this.applyOnlineCollisions(dt);
 
       // player velocity before/after the solver step ⇒ collision feedback
       const before = this.playerKart.body.linvel();
