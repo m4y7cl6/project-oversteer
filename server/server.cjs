@@ -4,13 +4,24 @@
  *
  *   npm run server          (port 8787, override with PORT env)
  *
- * Deployable to any Node host (Render/Fly/Railway/VPS); the client connects
- * via  ?server=wss://your-host  on the game URL.
+ * Deployable to Render / Fly / Railway / any Node host.
+ * The client connects via  ?server=wss://your-host  on the game URL.
+ *
+ * HTTP GET / → 200 health check (required by Render).
+ * All other HTTP paths → WebSocket upgrade.
  */
+const http = require('http');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 8787;
-const wss = new WebSocketServer({ port: PORT });
+
+// HTTP layer: health check for Render (and any load-balancer probe)
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('NITRO RUSH room server OK\n');
+});
+
+const wss = new WebSocketServer({ server });
 
 /** room -> Map<id, ws> */
 const rooms = new Map();
@@ -93,4 +104,6 @@ wss.on('connection', (ws) => {
   });
 });
 
-console.log(`NITRO RUSH room server listening on :${PORT}`);
+server.listen(PORT, () => {
+  console.log(`NITRO RUSH room server listening on :${PORT}`);
+});

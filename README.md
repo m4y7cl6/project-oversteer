@@ -86,17 +86,40 @@ npm run assets:build      # 發佈到 public/assets/ + manifest.json
 
 ## 線上多人（原型）
 
-在雙方都連得到的地方啟動房間伺服器：
+### 部署到 Render（推薦）
 
-```bash
-npm run server        # ws 伺服器，埠 :8787（用 PORT 環境變數更改）
+1. 前往 [Render Dashboard](https://dashboard.render.com/) → **New → Web Service**
+2. 連結這個 GitHub repo（`project-oversteer`）
+3. 設定：
+   - **Build Command**：`npm install --omit=dev`
+   - **Start Command**：`node server/server.cjs`
+   - **Plan**：Free
+4. 點 **Deploy**，等部署完成後會拿到網址，例如 `https://nitro-rush-server.onrender.com`
+
+> **注意**：Render 免費方案在無人連線 15 分鐘後會進入休眠，第一次連線需要約 30 秒喚醒。
+
+### 連線遊玩
+
+取得 Render 網址後，以下方格式開啟遊戲（第一位加入者自動成為房主，由房主按開始）：
+
+```
+# 玩家 1（房主）
+https://m4y7cl6.github.io/project-oversteer/?room=MYROOM&server=wss://nitro-rush-server.onrender.com&name=PLAYER1
+
+# 玩家 2
+https://m4y7cl6.github.io/project-oversteer/?room=MYROOM&server=wss://nitro-rush-server.onrender.com&name=PLAYER2
 ```
 
-帶房間參數開啟遊戲（第一位加入者為房主，由房主開始比賽）：
+把 `nitro-rush-server.onrender.com` 換成你自己的 Render 網域；`MYROOM` 可以自訂房間代碼。
+
+### 本機測試
+
+```bash
+npm run server        # 啟動 ws 伺服器，埠 :8787（用 PORT 環境變數更改）
+```
 
 ```
 http://localhost:5173/?room=MYROOM&name=PLAYER1
-https://m4y7cl6.github.io/project-oversteer/?room=MYROOM&server=wss://your-host&name=PLAYER1
 ```
 
 遠端卡丁車為插值顯示（線上模式無車對車碰撞）；排名即時同步。
