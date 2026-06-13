@@ -62,19 +62,43 @@ export function barrierTexture(): THREE.Texture {
   return tex;
 }
 
-export function grassTexture(): THREE.Texture {
+/** Speckled terrain tile; colors come from the track theme (grass/sand/asphalt). */
+export function groundTexture(base: string, speckleA: string, speckleB: string): THREE.Texture {
   const [c, ctx] = makeCanvas(256, 256);
-  ctx.fillStyle = '#3d7a35';
+  ctx.fillStyle = base;
   ctx.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 3200; i++) {
-    const shade = Math.random();
-    ctx.fillStyle = shade < 0.5 ? 'rgba(46,98,40,0.6)' : 'rgba(88,150,70,0.5)';
+    ctx.fillStyle = Math.random() < 0.5 ? speckleA : speckleB;
     ctx.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(40, 40);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+export function grassTexture(): THREE.Texture {
+  return groundTexture('#3d7a35', 'rgba(46,98,40,0.6)', 'rgba(88,150,70,0.5)');
+}
+
+/** Dark high-rise facade with a grid of randomly lit windows (city theme). */
+export function buildingTexture(): THREE.Texture {
+  const [c, ctx] = makeCanvas(128, 256);
+  ctx.fillStyle = '#181c26';
+  ctx.fillRect(0, 0, 128, 256);
+  const litColors = ['#ffd97a', '#9adcf5', '#ffb347'];
+  for (let y = 8; y < 248; y += 18) {
+    for (let x = 8; x < 120; x += 16) {
+      const lit = Math.random() < 0.35;
+      ctx.fillStyle = lit
+        ? litColors[Math.floor(Math.random() * litColors.length)]
+        : '#232836';
+      ctx.fillRect(x, y, 9, 11);
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }

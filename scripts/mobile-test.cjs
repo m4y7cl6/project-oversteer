@@ -22,12 +22,14 @@ const SHOT_DIR = path.resolve(__dirname, '..', '.smoke');
   page.on('pageerror', (err) => errors.push(err.message));
 
   await page.goto(URL, { waitUntil: 'load', timeout: 30000 });
-  await page.waitForSelector('#start-button:not([disabled])', { timeout: 30000 });
+  await page.waitForSelector('#splash-start:not([disabled])', { timeout: 30000 });
 
   const touchMode = await page.evaluate(() => document.body.classList.contains('touch-mode'));
   if (!touchMode) throw new Error('touch mode not detected on emulated device');
   console.log('touch mode detected');
 
+  await page.tap('#splash-start');
+  await page.tap('#menu-race');
   await page.tap('#start-button');
   await page.waitForSelector('#hud:not(.hidden)', { timeout: 5000 });
   const controlsVisible = await page.isVisible('#touch-controls');

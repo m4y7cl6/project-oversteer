@@ -7,20 +7,25 @@ import { AssetManager } from '../core/AssetManager';
 import { World } from '../core/World';
 import { TrackBuilder } from '../track/TrackBuilder';
 import { Scenery } from '../track/Scenery';
-import { TRACKS, TrackDefinition } from '../track/tracks';
+import { TRACKS, TrackDefinition, THEMES, trackById } from '../track/tracks';
 import { TrackManager, Progress } from '../track/TrackManager';
 import { Kart, KartEvent } from '../vehicle/Kart';
 import { PlayerController } from '../vehicle/PlayerController';
 import { AIController } from '../vehicle/AIController';
+import { UpgradeKey, vehicleById } from '../vehicle/vehicles';
 import { RaceManager, RacerEntry } from '../race/RaceManager';
 import { GhostSystem } from '../race/GhostSystem';
 import { NetClient, NetKartState, NetStartConfig } from '../net/NetClient';
 import { ChaseCamera } from '../camera/ChaseCamera';
 import { SmokeSystem } from '../effects/SmokeSystem';
-import { GameAudio } from '../effects/GameAudio';
+import { AudioManager } from '../audio/AudioManager';
+import { PlayerProfile } from '../save/PlayerProfile';
+import { ItemManager } from '../items/ItemManager';
+import { ItemEffectContext } from '../items/ItemEffect';
+import { ReplayRecorder, ReplayData } from '../replay/ReplaySystem';
 import { HUD } from '../ui/HUD';
 import { Minimap } from '../ui/Minimap';
-import { Screens } from '../ui/Screens';
+import { Screens, RaceRewards } from '../ui/Screens';
 import { KART, PHYSICS, RACE, RACERS } from './config';
 import { AssetManifestEntry } from '../core/AssetManager';
 
@@ -58,10 +63,21 @@ export class Game {
   private raceManager!: RaceManager;
   private chaseCam: ChaseCamera;
   private smoke: SmokeSystem;
-  private audio: GameAudio;
+  private audio: AudioManager;
   private hud = new HUD();
   private minimap!: Minimap;
   private screens = new Screens();
+  private profile = new PlayerProfile();
+  private items = new ItemManager();
+  private replayRecorder = new ReplayRecorder();
+  /** Most recent finished race (replay viewer foundation). */
+  lastReplay?: ReplayData;
+  /** Coins picked up during the current race (banked at the finish line). */
+  private raceCoins = 0;
+
+  // theme lighting (recolored per track)
+  private hemi!: THREE.HemisphereLight;
+  private sun!: THREE.DirectionalLight;
 
   private playerKart!: Kart;
   private playerController!: PlayerController;
@@ -109,20 +125,23 @@ export class Game {
       );
       if (entry) soundSources.set(cue, entry.url);
     }
-    this.audio = new GameAudio(soundSources);
+    this.audio = new AudioManager(soundSources);
+    this.audio.setBgmVolume(this.profile.settings.bgmVolume);
+    this.audio.setSfxVolume(this.profile.settings.sfxVolume);
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-    // sky, fog, lights
+    // sky, fog, lights (recolored per track theme in setTrack)
     this.scene.background = new THREE.Color(0x7ec8f0);
     this.scene.fog = new THREE.Fog(0x9adcf5, 140, 480);
-    this.scene.add(new THREE.HemisphereLight(0xcfeeff, 0x3e6b3a, 0.95));
-    const sun = new THREE.DirectionalLight(0xfff4d6, 1.5);
-    sun.position.set(80, 120, 40);
-    this.scene.add(sun);
+    this.hemi = new THREE.HemisphereLight(0xcfeeff, 0x3e6b3a, 0.95);
+    this.scene.add(this.hemi);
+    this.sun = new THREE.DirectionalLight(0xfff4d6, 1.5);
+    this.sun.position.set(80, 120, 40);
+    this.scene.add(this.sun);
 
     this.models = kartModels;
 
@@ -141,6 +160,7 @@ export class Game {
     this.chaseCam = new ChaseCamera(window.innerWidth / window.innerHeight);
     this.smoke = new SmokeSystem(this.scene);
 
+    this.applyPlayerVehicle();
     this.setTrack(TRACKS[0]);
 
     this.wireUi();
@@ -168,12 +188,25 @@ export class Game {
     for (const c of this.trackColliders) this.physics.world.removeCollider(c, false);
     this.trackColliders = [];
 
+    // theme environment: sky, fog, lighting
+    const theme = THEMES[def.theme];
+    (this.scene.background as THREE.Color).setHex(theme.skyColor);
+    const fog = this.scene.fog as THREE.Fog;
+    fog.color.setHex(theme.fogColor);
+    fog.near = theme.fogNear;
+    fog.far = theme.fogFar;
+    this.hemi.color.setHex(theme.hemiSky);
+    this.hemi.groundColor.setHex(theme.hemiGround);
+    this.sun.color.setHex(theme.sunColor);
+    this.sun.intensity = theme.sunIntensity;
+
     const builder = new TrackBuilder();
     const { data, group } = builder.build(def);
     this.trackGroup = group;
     this.scene.add(group);
     this.trackColliders = builder.buildPhysics(data, Physics.api, this.physics.world);
-    this.scenery = new Scenery(this.scene, data, this.models, group, def.seed);
+    this.scenery = new Scenery(this.scene, data, this.models, group, def.seed, theme.kitTrees);
+    this.items.build(this.scene, data, def.seed);
 
     this.trackManager = new TrackManager(data, 3);
     this.raceManager = new RaceManager(this.trackManager);
@@ -201,9 +234,10 @@ export class Game {
     this.onlineRace = false;
     this.remotes.clear();
     this.remoteKarts.clear();
-    this.setTrack(TRACKS.find((t) => t.id === this.screens.selectedTrack) ?? TRACKS[0]);
+    this.setTrack(trackById(this.screens.selectedTrack));
     this.trackManager.totalLaps = this.screens.selectedLaps;
     this.mode = this.screens.selectedMode;
+    this.playerKart.perf = this.profile.currentStats();
 
     // fresh progress state for every racer
     for (const e of this.entries) {
@@ -233,12 +267,27 @@ export class Game {
   }
 
   private beginCountdown(): void {
-    this.screens.hideStart();
     this.screens.hideResults();
+    this.screens.show('none');
     this.hud.show();
+    this.raceCoins = 0;
+    this.hud.setCoins(0);
+    this.items.resetAll();
+    this.replayRecorder.start(
+      this.currentTrackId,
+      this.trackManager.totalLaps,
+      this.mode,
+      this.raceManager.entries.map((e) => e.kart),
+      this.raceManager.entries.map((e) => ({
+        name: e.kart.spec.name,
+        color: e.kart.spec.color,
+        vehicleId: e.kart === this.playerKart ? this.profile.selectedVehicleId : undefined,
+      })),
+    );
     this.chaseCam.snapTo(this.playerKart);
     this.audio.start();
     this.audio.resume();
+    this.audio.setEngineEnabled(true);
     this.countdownLeft = RACE.COUNTDOWN_SECONDS + 0.5; // brief hold on "3"
     this.lastCountShown = -1;
   }
@@ -297,8 +346,9 @@ export class Game {
     if (!this.net) return;
     this.onlineRace = true;
     this.mode = 'race';
-    this.setTrack(TRACKS.find((t) => t.id === config.track) ?? TRACKS[0]);
+    this.setTrack(trackById(config.track));
     this.trackManager.totalLaps = config.laps;
+    this.playerKart.perf = this.profile.currentStats();
 
     for (const e of this.entries) {
       e.progress = new Progress();
@@ -368,12 +418,170 @@ export class Game {
         } else {
           this.hud.flashMessage('FINISH!');
         }
-        this.screens.showResults(this.raceManager.rankings, this.raceManager.player);
+        const rewards = this.bankRaceRewards();
+        this.lastReplay = this.replayRecorder.finish(
+          this.raceManager.rankings.map((e) => ({
+            name: e.kart.spec.name,
+            finishTime: e.progress.finishTime,
+            bestLap: e.progress.bestLap,
+          })),
+        );
+        this.screens.showResults(this.raceManager.rankings, this.raceManager.player, rewards);
       },
     };
   }
 
+  /** Compute & persist career rewards for the just-finished race. */
+  private bankRaceRewards(): RaceRewards {
+    const player = this.raceManager.player;
+    const rank = this.onlineRace ? this.onlineRank() : this.raceManager.rankOf(player);
+    const placeTable = [100, 60, 40, 25, 20, 15, 10, 10];
+    const placeCoins = this.mode === 'race' ? (placeTable[rank - 1] ?? 10) : 20;
+    const driftCoins = Math.round(this.playerKart.state.totalDriftScore / 40);
+
+    const records = this.profile.recordRaceResult({
+      trackId: this.currentTrackId,
+      laps: this.trackManager.totalLaps,
+      finishTime: player.progress.finishTime,
+      bestLap: player.progress.bestLap,
+      // time trials don't count as wins (single-entry "rank 1" is meaningless)
+      rank: this.mode === 'race' ? rank : 0,
+      driftScore: this.playerKart.state.totalDriftScore,
+    });
+
+    const total = placeCoins + driftCoins + this.raceCoins;
+    this.profile.addCoins(total);
+    return {
+      placeCoins,
+      driftCoins,
+      collectedCoins: this.raceCoins,
+      total,
+      balance: this.profile.coins,
+      newBestLap: records.newBestLap,
+      newBestTime: records.newBestTime,
+    };
+  }
+
+  /** Effect context for a pickup collected by `kart` (AI get no coins/sounds). */
+  private itemContext(kart: Kart): ItemEffectContext {
+    const isPlayer = kart === this.playerKart;
+    return {
+      kart,
+      isPlayer,
+      awardCoins: (amount) => {
+        if (!isPlayer) return;
+        this.raceCoins += amount;
+        this.hud.setCoins(this.raceCoins);
+      },
+      playSound: (cue, volume, rate) => {
+        if (isPlayer) this.audio.play(cue, volume, rate);
+      },
+    };
+  }
+
+  /** Dress the player kart as the profile's vehicle and apply its physics. */
+  private applyPlayerVehicle(): void {
+    const def = vehicleById(this.profile.selectedVehicleId);
+    const template = def.model ? this.models.get(def.model) : undefined;
+    this.playerKart.applyVehicle(def.color, def.accent, template);
+    this.playerKart.perf = this.profile.currentStats();
+  }
+
+  /** Back to the main menu with an idle grid as the backdrop. */
+  private toMenu(): void {
+    for (const e of this.entries) {
+      e.kart.visual.visible = true;
+      e.progress = new Progress();
+    }
+    this.ghost.dispose(this.scene);
+    this.raceManager.setup(this.entries);
+    this.raceManager.state = 'idle';
+    this.chaseCam.snapTo(this.playerKart);
+    this.hud.hide();
+    this.audio.setEngineEnabled(false);
+    this.screens.updateProfileBar(this.profile);
+    this.screens.show('menu');
+  }
+
   private wireUi(): void {
+    const s = this.screens;
+    s.onUiClick = () => this.audio.play('click', 0.5);
+
+    // splash doubles as the audio-unlock gesture; BGM starts in the menu
+    s.onSplashStart = () => {
+      this.audio.start();
+      this.audio.setEngineEnabled(false);
+      s.updateProfileBar(this.profile);
+      s.show('menu');
+    };
+    s.onMenuRace = () => {
+      s.renderTracks(this.profile);
+      s.show('setup');
+    };
+    s.onMenuGarage = () => {
+      s.renderGarage(this.profile);
+      s.show('garage');
+    };
+    s.onMenuSettings = () => {
+      s.renderSettings(this.profile.settings);
+      s.show('settings');
+    };
+    s.onBackToMenu = () => {
+      s.updateProfileBar(this.profile);
+      s.show('menu');
+    };
+    s.onResultsMenu = () => this.toMenu();
+
+    s.onSettingsChange = (patch) => {
+      this.profile.updateSettings(patch);
+      if (patch.bgmVolume !== undefined) this.audio.setBgmVolume(patch.bgmVolume);
+      if (patch.sfxVolume !== undefined) this.audio.setSfxVolume(patch.sfxVolume);
+    };
+
+    // garage: select / buy vehicles, buy upgrades
+    s.onVehicleSelect = (id) => {
+      this.profile.selectVehicle(id);
+      this.applyPlayerVehicle();
+      s.renderGarage(this.profile);
+    };
+    s.onVehicleBuy = (id) => {
+      if (this.profile.buyVehicle(id)) {
+        this.audio.play('purchase', 0.9);
+        this.profile.selectVehicle(id);
+        this.applyPlayerVehicle();
+      } else {
+        this.audio.play('denied', 0.8);
+      }
+      s.renderGarage(this.profile);
+    };
+    s.onUpgradeBuy = (vehicleId, key) => {
+      if (this.profile.buyUpgrade(vehicleId, key as UpgradeKey)) {
+        this.audio.play('purchase', 0.9);
+        this.applyPlayerVehicle();
+      } else {
+        this.audio.play('denied', 0.8);
+      }
+      s.renderGarage(this.profile);
+    };
+
+    // setup: track unlocks + idle backdrop preview
+    s.onTrackBuy = (id) => {
+      const def = trackById(id);
+      if (this.profile.buyTrack(id, def.unlockCost)) {
+        this.audio.play('purchase', 0.9);
+        s.selectedTrack = id;
+        s.renderTracks(this.profile);
+        if (this.raceManager.state === 'idle') this.setTrack(def);
+      } else {
+        this.audio.play('denied', 0.8);
+      }
+    };
+    s.onTrackChange = (id) => {
+      if (this.raceManager.state === 'idle') {
+        this.setTrack(trackById(id));
+      }
+    };
+
     // online: only the host launches races (broadcast starts everyone)
     const requestStart = () => {
       if (this.net?.connected) {
@@ -385,14 +593,8 @@ export class Game {
         this.startRace();
       }
     };
-    this.screens.onStart(requestStart);
-    this.screens.onRestart(requestStart);
-    // switching tracks in the menu rebuilds the idle backdrop immediately
-    this.screens.onTrackChange = (id) => {
-      if (this.raceManager.state === 'idle') {
-        this.setTrack(TRACKS.find((t) => t.id === id) ?? TRACKS[0]);
-      }
-    };
+    s.onStart(requestStart);
+    s.onRestart(requestStart);
   }
 
   // ---------------- main loop ----------------
@@ -450,6 +652,16 @@ export class Game {
 
       this.raceManager.fixedUpdate(dt);
       this.drainKartEvents();
+      this.replayRecorder.recordTick();
+
+      // pickups: every active racer can collect (parked karts are far away)
+      if (this.raceManager.state === 'racing') {
+        this.items.fixedUpdate(
+          dt,
+          this.raceManager.entries.map((e) => e.kart),
+          (kart) => this.itemContext(kart),
+        );
+      }
 
       if (this.mode === 'timetrial' && !this.raceManager.player.progress.finished) {
         this.ghost.recordTick(this.playerKart);
@@ -499,8 +711,10 @@ export class Game {
     switch (ev) {
       case 'drift-tier-1': this.audio.play('tier1', 0.7, 1.1); break;
       case 'drift-tier-2': this.audio.play('tier2', 0.8); break;
+      case 'drift-tier-3': this.audio.play('tier2', 0.9, 1.4); break;
       case 'mini-boost-1': this.audio.play('mini', 0.9, 1.2); break;
       case 'mini-boost-2': this.audio.play('mini', 1.0, 0.85); break;
+      case 'mini-boost-3': this.audio.play('mini', 1.0, 0.65); break;
       case 'nitro': this.audio.play('nitro', 1.0); break;
     }
   }
@@ -527,6 +741,7 @@ export class Game {
     }
     if (this.onlineRace) this.updateRemotes();
     this.world.update(dt, alpha);
+    this.items.update(dt);
 
     this.chaseCam.update(this.playerKart, dt);
     // remote karts' bodies are parked; their smoke would emit at the car park

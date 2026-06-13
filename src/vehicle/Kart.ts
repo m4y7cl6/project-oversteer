@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { Physics } from '../core/Physics';
-import { KART, DRIFT, NITRO, RacerSpec } from '../game/config';
+import { KART, DRIFT, DRIFT_TIERS, NITRO, RacerSpec } from '../game/config';
+import { VehicleStats, DEFAULT_STATS } from './vehicles';
 import { blobShadowTexture } from '../track/textures';
 
 /** Driving intents for one tick, produced by Player/AI controllers. */
@@ -25,8 +26,10 @@ export class KartInput {
 export type KartEvent =
   | 'drift-tier-1'
   | 'drift-tier-2'
+  | 'drift-tier-3'
   | 'mini-boost-1'
   | 'mini-boost-2'
+  | 'mini-boost-3'
   | 'nitro';
 
 /** Gameplay state owned by the kart's physics model. */
@@ -38,7 +41,7 @@ export class KartState {
   isDrifting = false;
   driftScore = 0; // points in the current drift
   totalDriftScore = 0;
-  /** 0/1/2 while drifting — which release-boost tier is currently earned. */
+  /** 0..DRIFT_TIERS.length while drifting — release-boost tier currently earned. */
   driftTier = 0;
   miniBoostTimer = 0;
   miniBoostTier = 0;
@@ -75,6 +78,13 @@ export class Kart {
   readonly input = new KartInput();
   readonly state = new KartState();
 
+  /**
+   * Performance multipliers (1.0 = baseline) applied on top of the global
+   * KART/NITRO tuning. Set from the vehicle database + upgrades for the
+   * player; AI karts stay at the defaults.
+   */
+  perf: VehicleStats = { ...DEFAULT_STATS };
+
   private wheels: THREE.Object3D[] = [];
   private frontWheels: THREE.Object3D[] = [];
   private chassis!: THREE.Group;
@@ -109,7 +119,19 @@ export class Kart {
       .setRestitution(0.3);
     physics.world.createCollider(collider, this.body);
 
-    this.visual = this.buildVisual();
+    this.visual = new THREE.Group();
+    this.rebuildVisual();
+  }
+
+  /**
+   * Re-skin to a garage vehicle: racer colors + optional glTF template.
+   * The visual group instance is preserved (it stays in the scene).
+   */
+  applyVehicle(color: number, accent: number, template?: THREE.Object3D): void {
+    this.spec.color = color;
+    this.spec.accent = accent;
+    this.modelTemplate = template;
+    this.rebuildVisual();
   }
 
   /** Teleport to a pose and zero all motion (grid placement / respawn). */
@@ -160,10 +182,11 @@ export class Kart {
     let latSpeed = _vel.dot(_right);
 
     // ---- nitro ----
+    const boostMaxSpeed = NITRO.BOOST_MAX_SPEED * this.perf.speed;
     if (inp.nitro && st.nitroReady && !st.isBoosting) {
       st.nitroGauge = 0;
-      st.boostTimer = NITRO.BOOST_DURATION;
-      fwdSpeed = Math.min(fwdSpeed + NITRO.BOOST_KICK_IMPULSE, NITRO.BOOST_MAX_SPEED);
+      st.boostTimer = NITRO.BOOST_DURATION * this.perf.nitro;
+      fwdSpeed = Math.min(fwdSpeed + NITRO.BOOST_KICK_IMPULSE, boostMaxSpeed);
       st.events.push('nitro');
     }
     if (st.isBoosting) st.boostTimer = Math.max(0, st.boostTimer - dt);
@@ -171,9 +194,9 @@ export class Kart {
 
     const boosting = st.isBoosting;
     const miniBoosting = !boosting && st.miniBoostTimer > 0;
-    let maxSpeed = boosting ? NITRO.BOOST_MAX_SPEED : KART.MAX_SPEED;
+    let maxSpeed = boosting ? boostMaxSpeed : KART.MAX_SPEED * this.perf.speed;
     if (miniBoosting) {
-      maxSpeed += st.miniBoostTier === 2 ? DRIFT.TIER2_MAX_BONUS : DRIFT.TIER1_MAX_BONUS;
+      maxSpeed += DRIFT_TIERS[st.miniBoostTier - 1]?.maxBonus ?? 0;
     }
     if (st.offroad && !boosting) maxSpeed = Math.min(maxSpeed, KART.OFFROAD_MAX_SPEED);
 
@@ -186,13 +209,16 @@ export class Kart {
       st.driftTier = 0;
       latSpeed += inp.steer * 2.6; // outward kick to break traction
     } else if (st.isDrifting && (!inp.drift || !speedOk)) {
-      // release: a held tier converts into an instant mini-boost
-      if (st.driftTier > 0 && speedOk) {
+      // release: a held tier converts into an instant mini-boost + nitro bonus
+      const tier = DRIFT_TIERS[st.driftTier - 1];
+      if (tier && speedOk) {
         st.miniBoostTier = st.driftTier;
-        st.miniBoostTimer = st.driftTier === 2 ? DRIFT.TIER2_BOOST_TIME : DRIFT.TIER1_BOOST_TIME;
-        const kick = st.driftTier === 2 ? DRIFT.TIER2_KICK : DRIFT.TIER1_KICK;
-        fwdSpeed = Math.min(fwdSpeed + kick, maxSpeed + kick);
-        st.events.push(st.driftTier === 2 ? 'mini-boost-2' : 'mini-boost-1');
+        st.miniBoostTimer = tier.boostTime;
+        fwdSpeed = Math.min(fwdSpeed + tier.kick, maxSpeed + tier.kick);
+        st.nitroGauge = Math.min(
+          NITRO.GAUGE_MAX, st.nitroGauge + tier.nitroBonus * this.perf.nitro,
+        );
+        st.events.push(`mini-boost-${st.driftTier}` as KartEvent);
       }
       st.isDrifting = false;
       st.driftScore = 0;
@@ -201,7 +227,7 @@ export class Kart {
 
     // ---- longitudinal ----
     let accel = 0;
-    let engineAccel = boosting ? NITRO.BOOST_ACCEL : KART.ENGINE_ACCEL;
+    let engineAccel = (boosting ? NITRO.BOOST_ACCEL : KART.ENGINE_ACCEL) * this.perf.accel;
     if (miniBoosting) engineAccel += DRIFT.MINI_BOOST_ACCEL;
     const throttle = boosting || miniBoosting ? 1 : inp.throttle;
     if (throttle > 0 && fwdSpeed < maxSpeed) {
@@ -222,7 +248,7 @@ export class Kart {
     fwdSpeed += accel * dt;
 
     // ---- lateral grip ----
-    let grip = st.isDrifting ? KART.GRIP_DRIFT : KART.GRIP_NORMAL;
+    let grip = st.isDrifting ? KART.GRIP_DRIFT : KART.GRIP_NORMAL * this.perf.handling;
     if (st.offroad) grip = Math.min(grip, KART.GRIP_OFFROAD);
     if (st.isDrifting && Math.sign(inp.steer) !== 0 &&
         Math.sign(inp.steer) === -Math.sign(latSpeed)) {
@@ -239,7 +265,7 @@ export class Kart {
       KART.STEER_HIGH_SPEED_FALLOFF,
       THREE.MathUtils.clamp(Math.abs(fwdSpeed) / KART.MAX_SPEED, 0, 1),
     );
-    let yawRate = inp.steer * KART.STEER_RATE * speedFactor * falloff * dir;
+    let yawRate = inp.steer * KART.STEER_RATE * this.perf.handling * speedFactor * falloff * dir;
     if (st.isDrifting) yawRate *= DRIFT.YAW_BOOST;
     if (Math.abs(fwdSpeed) < KART.MIN_STEER_SPEED) yawRate = 0;
     const av = this.body.angvel();
@@ -255,13 +281,17 @@ export class Kart {
       const gained = slipRad * DRIFT.SCORE_RATE * dt * (fwdSpeed / KART.MAX_SPEED) * 10;
       st.driftScore += gained;
       st.totalDriftScore += gained;
-      st.nitroGauge = Math.min(NITRO.GAUGE_MAX, st.nitroGauge + gained * DRIFT.GAUGE_PER_SCORE * 10);
+      st.nitroGauge = Math.min(
+        NITRO.GAUGE_MAX,
+        st.nitroGauge + gained * DRIFT.GAUGE_PER_SCORE * 10 * this.perf.nitro,
+      );
 
-      // live tier-up feedback while still sliding
-      const tier = st.driftScore >= DRIFT.TIER2_SCORE ? 2 : st.driftScore >= DRIFT.TIER1_SCORE ? 1 : 0;
+      // live tier-up feedback while still sliding (blue → red → purple)
+      let tier = 0;
+      while (tier < DRIFT_TIERS.length && st.driftScore >= DRIFT_TIERS[tier].score) tier++;
       if (tier > st.driftTier) {
         st.driftTier = tier;
-        st.events.push(tier === 2 ? 'drift-tier-2' : 'drift-tier-1');
+        st.events.push(`drift-tier-${tier}` as KartEvent);
       }
     }
 
@@ -321,8 +351,12 @@ export class Kart {
     }
   }
 
-  private buildVisual(): THREE.Group {
-    const g = new THREE.Group();
+  private rebuildVisual(): void {
+    const g = this.visual;
+    g.clear();
+    this.wheels = [];
+    this.frontWheels = [];
+    this.flames = [];
     this.chassis = new THREE.Group();
     g.add(this.chassis);
 
@@ -359,8 +393,6 @@ export class Kart {
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.y = 0.045;
     g.add(shadow);
-
-    return g;
   }
 
   /** Use a glTF car: normalize size/origin, wire up named wheel nodes. */

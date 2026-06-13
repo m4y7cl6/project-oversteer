@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Kart } from '../vehicle/Kart';
+import { DRIFT_TIERS } from '../game/config';
 import { smokeTexture } from '../track/textures';
 
 interface Particle {
@@ -66,9 +67,10 @@ export class SmokeSystem {
           .addScaledVector(fwd, -1.0)
           .addScaledVector(_right, side * 0.7)
           .setY(0.25);
-        // roughly every other particle becomes a tier spark
+        // roughly every other particle becomes a tier spark (blue/red/purple)
         if (sparking && i % 2 === 0) {
-          this.spawn(_rear, st.driftTier === 2 ? 0xffae3d : 0x55d6ff, drifting, true);
+          const color = DRIFT_TIERS[st.driftTier - 1]?.color ?? 0x55d6ff;
+          this.spawn(_rear, color, drifting, true);
         } else {
           this.spawn(_rear, drifting ? 0xffffff : 0xc2a76b, drifting);
         }

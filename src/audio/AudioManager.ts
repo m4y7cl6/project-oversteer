@@ -2,21 +2,28 @@ import { NITRO } from '../game/config';
 import { KartState } from '../vehicle/Kart';
 
 /**
- * All game audio, no <audio> tags:
- * - procedural engine (saw osc pitched by speed) + nitro whoosh + drift skid
- *   (filtered noise), so the core loop works with zero audio assets
- * - one-shot CC0 samples (Kenney) for impacts/UI/jingles, decoded lazily from
- *   the URLs in `sources`; a missing file just means that cue stays silent
+ * All game audio, no <audio> tags. Two buses under one master:
+ *
+ *   music — procedural chiptune BGM
+ *   sfx   — procedural engine / nitro whoosh / drift skid, one-shot CC0
+ *           samples (Kenney) decoded lazily from `sources`, and synthesized
+ *           UI/pickup cues so every sound works with zero audio assets
+ *
+ * Bus volumes are runtime-settable (wired to the profile's settings).
  */
-export class GameAudio {
+export class AudioManager {
   private ctx?: AudioContext;
   private master?: GainNode;
+  private sfxBus?: GainNode;
   private osc?: OscillatorNode;
   private oscGain?: GainNode;
   private nitroGain?: GainNode;
   private skidGain?: GainNode;
   private buffers = new Map<string, AudioBuffer>();
   private started = false;
+
+  private bgmVolume = 0.5;
+  private sfxVolume = 1.0;
 
   // chiptune sequencer state
   private musicGain?: GainNode;
@@ -27,7 +34,7 @@ export class GameAudio {
 
   constructor(private sources: Map<string, string>) {}
 
-  /** Must be called from a user gesture (the START button). */
+  /** Must be called from a user gesture (a menu button). */
   start(): void {
     if (this.started) return;
     this.started = true;
@@ -36,6 +43,10 @@ export class GameAudio {
       this.master = this.ctx.createGain();
       this.master.gain.value = 0.17;
       this.master.connect(this.ctx.destination);
+
+      this.sfxBus = this.ctx.createGain();
+      this.sfxBus.gain.value = this.sfxVolume;
+      this.sfxBus.connect(this.master);
 
       // engine: lowpassed saw
       this.osc = this.ctx.createOscillator();
@@ -46,7 +57,7 @@ export class GameAudio {
       engineFilter.frequency.value = 700;
       this.oscGain = this.ctx.createGain();
       this.oscGain.gain.value = 0.5;
-      this.osc.connect(engineFilter).connect(this.oscGain).connect(this.master);
+      this.osc.connect(engineFilter).connect(this.oscGain).connect(this.sfxBus);
       this.osc.start();
 
       // shared white-noise source feeding nitro whoosh + tire skid branches
@@ -63,7 +74,7 @@ export class GameAudio {
       nitroFilter.frequency.value = 900;
       this.nitroGain = this.ctx.createGain();
       this.nitroGain.gain.value = 0;
-      noise.connect(nitroFilter).connect(this.nitroGain).connect(this.master);
+      noise.connect(nitroFilter).connect(this.nitroGain).connect(this.sfxBus);
 
       const skidFilter = this.ctx.createBiquadFilter();
       skidFilter.type = 'bandpass';
@@ -71,7 +82,7 @@ export class GameAudio {
       skidFilter.Q.value = 1.2;
       this.skidGain = this.ctx.createGain();
       this.skidGain.gain.value = 0;
-      noise.connect(skidFilter).connect(this.skidGain).connect(this.master);
+      noise.connect(skidFilter).connect(this.skidGain).connect(this.sfxBus);
 
       noise.start();
 
@@ -83,22 +94,88 @@ export class GameAudio {
     }
   }
 
-  /** Fire a one-shot sample by semantic name (no-op until decoded). */
-  play(name: string, volume = 1, rate = 1): void {
-    if (!this.ctx || !this.master) return;
-    const buf = this.buffers.get(name);
-    if (!buf) return;
-    const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    src.playbackRate.value = rate;
-    const gain = this.ctx.createGain();
-    gain.gain.value = volume;
-    src.connect(gain).connect(this.master);
-    src.start();
+  /** Engine/skid layers only make sense in a race; mute them in menus. */
+  setEngineEnabled(on: boolean): void {
+    if (!this.ctx || !this.oscGain) return;
+    const t = this.ctx.currentTime;
+    if (!on) {
+      this.oscGain.gain.setTargetAtTime(0, t, 0.05);
+      this.nitroGain?.gain.setTargetAtTime(0, t, 0.05);
+      this.skidGain?.gain.setTargetAtTime(0, t, 0.05);
+    }
+    this.engineEnabled = on;
   }
+  private engineEnabled = true;
+
+  // ---------------- volume settings ----------------
+
+  setBgmVolume(v: number): void {
+    this.bgmVolume = Math.max(0, Math.min(1, v));
+    if (!this.musicMuted && this.musicGain && this.ctx) {
+      this.musicGain.gain.setTargetAtTime(this.bgmVolume, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  setSfxVolume(v: number): void {
+    this.sfxVolume = Math.max(0, Math.min(1, v));
+    if (this.sfxBus && this.ctx) {
+      this.sfxBus.gain.setTargetAtTime(this.sfxVolume, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  // ---------------- one-shots ----------------
+
+  /**
+   * Fire a one-shot by semantic name: a decoded sample when available,
+   * otherwise a synthesized fallback for known UI/pickup cues.
+   */
+  play(name: string, volume = 1, rate = 1): void {
+    if (!this.ctx || !this.sfxBus) return;
+    const buf = this.buffers.get(name);
+    if (buf) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = rate;
+      const gain = this.ctx.createGain();
+      gain.gain.value = volume;
+      src.connect(gain).connect(this.sfxBus);
+      src.start();
+      return;
+    }
+    this.playSynth(name, volume, rate);
+  }
+
+  /** Square-wave blips for cues that ship no sample (coin, UI clicks…). */
+  private playSynth(name: string, volume: number, rate: number): void {
+    const NOTES: Record<string, { freqs: number[]; dur: number; type: OscillatorType }> = {
+      coin: { freqs: [988, 1319], dur: 0.07, type: 'square' },
+      pickup: { freqs: [523, 784, 1047], dur: 0.06, type: 'square' },
+      purchase: { freqs: [523, 659, 784, 1047], dur: 0.08, type: 'square' },
+      denied: { freqs: [196, 165], dur: 0.12, type: 'sawtooth' },
+      click: { freqs: [880], dur: 0.04, type: 'square' },
+    };
+    const def = NOTES[name];
+    if (!def || !this.ctx || !this.sfxBus) return;
+    const t0 = this.ctx.currentTime;
+    def.freqs.forEach((freq, i) => {
+      const osc = this.ctx!.createOscillator();
+      osc.type = def.type;
+      osc.frequency.value = freq * rate;
+      const g = this.ctx!.createGain();
+      const t = t0 + i * def.dur;
+      g.gain.setValueAtTime(0.25 * volume, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + def.dur);
+      osc.connect(g).connect(this.sfxBus!);
+      osc.start(t);
+      osc.stop(t + def.dur + 0.02);
+    });
+  }
+
+  // ---------------- per-frame engine model ----------------
 
   update(state: KartState): void {
     if (!this.ctx || !this.osc || !this.oscGain || !this.nitroGain || !this.skidGain) return;
+    if (!this.engineEnabled) return;
     const t = this.ctx.currentTime;
     const ratio = Math.min(1, Math.abs(state.forwardSpeed) / NITRO.BOOST_MAX_SPEED);
     const idle = Math.abs(state.forwardSpeed) < 0.5;
@@ -125,7 +202,7 @@ export class GameAudio {
   toggleMusic(): void {
     this.musicMuted = !this.musicMuted;
     this.musicGain?.gain.setTargetAtTime(
-      this.musicMuted ? 0 : 0.5, this.ctx?.currentTime ?? 0, 0.05,
+      this.musicMuted ? 0 : this.bgmVolume, this.ctx?.currentTime ?? 0, 0.05,
     );
   }
 
@@ -137,7 +214,7 @@ export class GameAudio {
   private startMusic(): void {
     if (!this.ctx || !this.master) return;
     this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = this.musicMuted ? 0 : 0.5;
+    this.musicGain.gain.value = this.musicMuted ? 0 : this.bgmVolume;
     this.musicGain.connect(this.master);
 
     const stepDur = 60 / 112 / 2; // eighth notes

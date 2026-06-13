@@ -55,3 +55,34 @@
 - [ ] Next: remote wheel/flame animation, shared results table with peer
       names, kart-vs-kart collision (needs authoritative host or rollback),
       public server deployment
+
+## Phase 2 — Single-player Alpha ✅
+- [x] Game flow: splash → main menu → garage / settings → race setup →
+      race → results (all DOM screens in src/ui/Screens.ts)
+- [x] Career: coins from placement / drift / pickups, profile bar,
+      per-track records (best lap + best time per lap count)
+- [x] Save system: versioned localStorage wrapper (src/save/SaveSystem.ts)
+      + PlayerProfile (coins, unlocks, upgrades, records, settings)
+- [x] Vehicle database: 5 vehicles with speed/accel/handling/nitro stats as
+      physics multipliers (src/vehicle/vehicles.ts), garage select/buy UI
+- [x] Upgrade system: engine / tires / nitro tank / steering, 3 levels each,
+      additive stat bonuses that feed Kart.perf
+- [x] Track expansion: theme system (meadow/forest/desert/city — sky, fog,
+      lighting, ground texture, props) + 3 new tracks: EMERALD WOODS,
+      DUNE BLAZE, NEON DISTRICT; coin-unlockable
+- [x] Item system foundation: ItemManager / ItemDefinition / ItemEffect,
+      nitro canister + coin pickups with respawn timers
+- [x] Drift tier system: BLUE → RED → PURPLE sparks with escalating release
+      boost + nitro bonus (config: DRIFT_TIERS)
+- [x] AudioManager: music/sfx buses with persisted volumes, synthesized
+      UI/pickup cues (coin, purchase, denied, click), engine mute in menus
+- [x] Replay recording foundation: all-kart 20 Hz pose capture +
+      interpolated playback (src/replay/ReplaySystem.ts; Game.lastReplay)
+- [x] Track editor foundation: custom track data model, validation,
+      localStorage library (src/editor/TrackEditor.ts)
+- [x] AI fix: obstruction recovery (full throttle but crawling ⇒ reverse
+      out) + early lift for near-stationary karts on the nose
+- [x] E2E: career flow test (scripts/career-test.cjs), AI probe
+      (scripts/ai-probe.cjs), all suites updated for the new screen flow
+- [ ] Next: replay viewer UI, track editor UI, AI vehicle variety,
+      more item types (shield / missile / trap)

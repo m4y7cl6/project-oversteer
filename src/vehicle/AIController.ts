@@ -17,6 +17,7 @@ export class AIController {
 
   private sampleHint = 0;
   private stuckTime = 0;
+  private crawlTime = 0;
   private reverseTime = 0;
   private nitroChargeRate: number;
   private nitroCooldown = 0;
@@ -85,6 +86,8 @@ export class AIController {
       const side = Math.sign(fwd.z * _toOther.x - fwd.x * _toOther.z) || 1;
       steer += -side * AI.AVOID_STEER * (1 - d / AI.AVOID_RADIUS) * 2;
       if (ahead > 0.85 && other.state.forwardSpeed < speed - 1) blockedAhead = true;
+      // near-stationary kart on the nose: lift early instead of bulldozing it
+      if (ahead > 0.6 && d < 3.4 && Math.abs(other.state.forwardSpeed) < 2) blockedAhead = true;
     }
     ki.steer = THREE.MathUtils.clamp(steer, -1, 1);
 
@@ -105,6 +108,20 @@ export class AIController {
       ki.throttle = 1;
     } else if (speed > targetSpeed + 1.5) {
       ki.brake = 1;
+    }
+
+    // ---- obstruction recovery: full throttle but barely moving ⇒ something
+    // (a wall seam, another kart being shoved) is absorbing the drive force;
+    // the |speed|<1.2 stuck check above never fires while crawling at ~4 m/s
+    if (ki.throttle > 0.9 && Math.abs(speed) < 4.5) {
+      this.crawlTime += dt;
+      if (this.crawlTime > 2.5) {
+        this.crawlTime = 0;
+        this.reverseTime = 1.1;
+        return;
+      }
+    } else {
+      this.crawlTime = 0;
     }
 
     // ---- nitro: charge passively, fire on straights ----

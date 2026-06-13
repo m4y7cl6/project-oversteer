@@ -20,12 +20,18 @@ export class HUD {
   private driftValue = document.getElementById('drift-value')!;
   private messageEl = document.getElementById('hud-message')!;
   private wrongWayEl = document.getElementById('wrong-way')!;
+  private coinsEl = document.getElementById('coins-value')!;
 
   private messageTimer = 0;
   private driftLinger = 0;
 
   show(): void { this.root.classList.remove('hidden'); }
   hide(): void { this.root.classList.add('hidden'); }
+
+  /** Coins collected in the current race. */
+  setCoins(count: number): void {
+    this.coinsEl.textContent = count.toString();
+  }
 
   flashMessage(text: string, seconds = 2.2): void {
     this.messageEl.textContent = text;
@@ -66,6 +72,7 @@ export class HUD {
       this.driftValue.textContent = Math.floor(state.driftScore).toString();
       this.driftBox.classList.toggle('tier-1', state.driftTier === 1);
       this.driftBox.classList.toggle('tier-2', state.driftTier === 2);
+      this.driftBox.classList.toggle('tier-3', state.driftTier === 3);
     } else {
       this.driftLinger -= dt;
     }

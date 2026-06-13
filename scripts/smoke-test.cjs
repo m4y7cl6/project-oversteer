@@ -14,19 +14,26 @@ const SHOT_DIR = path.resolve(__dirname, '..', '.smoke');
 
   const errors = [];
   page.on('console', (msg) => {
-    if (msg.type() === 'error') errors.push(msg.text());
+    if (msg.type() !== 'error') return;
+    // the optional asset manifest 404s in procedural mode — not a failure
+    if ((msg.location()?.url ?? '').includes('assets/manifest.json')) return;
+    errors.push(msg.text());
   });
   page.on('pageerror', (err) => errors.push(`PAGEERROR: ${err.message}`));
   page.on('response', (res) => {
+    // the asset manifest is optional (procedural mode when the pipeline hasn't run)
+    if (res.url().endsWith('assets/manifest.json')) return;
     if (res.status() >= 400) errors.push(`HTTP ${res.status()} ${res.url()}`);
   });
 
   await page.goto(URL, { waitUntil: 'load', timeout: 30000 });
 
-  // start screen ready (Rapier WASM loaded)
-  await page.waitForSelector('#start-button:not([disabled])', { timeout: 30000 });
+  // splash ready (Rapier WASM loaded), then navigate to race setup
+  await page.waitForSelector('#splash-start:not([disabled])', { timeout: 30000 });
   await page.screenshot({ path: path.join(SHOT_DIR, '1-start.png') });
-  console.log('start screen OK');
+  console.log('splash screen OK');
+  await page.click('#splash-start');
+  await page.click('#menu-race');
 
   await page.click('#start-button');
   await page.waitForSelector('#countdown:not(.hidden)', { timeout: 5000 });

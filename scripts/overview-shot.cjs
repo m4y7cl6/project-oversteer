@@ -13,10 +13,10 @@ const SHOT_DIR = path.resolve(__dirname, '..', '.smoke');
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   await page.goto(URL, { waitUntil: 'load', timeout: 30000 });
-  await page.waitForSelector('#start-button:not([disabled])', { timeout: 30000 });
+  await page.waitForSelector('#splash-start:not([disabled])', { timeout: 30000 });
 
   await page.evaluate(() => {
-    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('splash-screen').classList.add('hidden');
     const cam = window.__NITRO_RUSH__.chaseCam.camera;
     cam.position.set(20, 300, 80);
     cam.lookAt(20, 0, 80);

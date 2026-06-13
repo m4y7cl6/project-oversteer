@@ -39,6 +39,8 @@ export class Scenery {
     private models: Map<string, THREE.Object3D>,
     trackGroup: THREE.Group,
     private seed = 1337,
+    /** Kit trees only fit grassy themes; desert/city keep their own props. */
+    kitTrees = true,
   ) {
     this.group.name = 'scenery';
     scene.add(this.group);
@@ -51,7 +53,7 @@ export class Scenery {
     this.placeGrandstands();
     this.placeLightPosts();
     this.placePylons();
-    if (this.placeTrees()) {
+    if (kitTrees && this.placeTrees()) {
       trackGroup.getObjectByName('trees')?.removeFromParent();
     }
   }

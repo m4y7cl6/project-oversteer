@@ -14,13 +14,34 @@ main.ts ── boots Rapier WASM, constructs Game
 Game (composition root)
  ├─ core/    Physics (fixed 60 Hz Rapier world), Input, AssetManager, World (ECS-like)
  ├─ track/   TrackBuilder → TrackData (samples) → TrackManager (rules)
+ │           tracks.ts: definitions + themes (sky/fog/light/ground/props)
  ├─ vehicle/ Kart = RigidBody + handling model + procedural mesh
  │           PlayerController / AIController write KartInput intents
+ │           vehicles.ts: vehicle database + upgrades → Kart.perf multipliers
  ├─ race/    RaceManager: clock, checkpoints→laps, ranking, rubber-band
+ │           GhostSystem: time-trial best-run recording/playback
+ ├─ items/   ItemManager (placement/collection/respawn), ItemDefinition,
+ │           ItemEffect (nitro charge, coins) — future pickups slot in here
+ ├─ save/    SaveSystem (versioned localStorage), PlayerProfile (career)
+ ├─ audio/   AudioManager: music/sfx buses, procedural engine + chiptune BGM,
+ │           sample one-shots with synthesized fallbacks
+ ├─ replay/  ReplayRecorder / ReplayPlayback (20 Hz all-kart pose capture)
+ ├─ editor/  CustomTrack model + validation + CustomTrackStore (foundation)
  ├─ camera/  ChaseCamera (speed/nitro FOV)
- ├─ effects/ SmokeSystem (pooled sprites), EngineAudio (WebAudio, procedural)
- └─ ui/      HUD, Minimap, Screens (DOM overlay)
+ ├─ effects/ SmokeSystem (pooled sprites, drift-tier spark colors)
+ └─ ui/      HUD, Minimap, Screens (splash/menu/garage/settings/setup/results)
 ```
+
+## Game flow & career
+
+Screens is a pure view layer; Game wires its callbacks. The profile
+(coins, vehicle/track unlocks, upgrade levels, per-track records, volume
+settings) auto-saves through SaveSystem on every mutation. Race rewards =
+placement + drift bonus + coins collected; banked on the finish line.
+
+Vehicle stats are multipliers (1.0 = the global KART/NITRO tuning) applied
+inside `Kart.fixedUpdate`, so vehicles and upgrades change real physics while
+AI karts stay at the defaults.
 
 ## Simulation loop
 

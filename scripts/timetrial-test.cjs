@@ -14,7 +14,9 @@ const URL = process.env.GAME_URL || 'http://localhost:5173';
   page.on('pageerror', (e) => errors.push(e.message));
 
   await page.goto(URL, { waitUntil: 'load', timeout: 30000 });
-  await page.waitForSelector('#start-button:not([disabled])', { timeout: 30000 });
+  await page.waitForSelector('#splash-start:not([disabled])', { timeout: 30000 });
+  await page.click('#splash-start');
+  await page.click('#menu-race');
   await page.click('.mode-btn[data-mode="timetrial"]');
   await page.click('.lap-btn[data-laps="1"]');
   await page.click('#start-button');

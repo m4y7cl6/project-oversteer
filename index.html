@@ -24,6 +24,7 @@
           <div id="hud-lap">LAP <span id="lap-value">1/3</span></div>
           <div id="hud-time"><span id="time-value">0:00.000</span></div>
           <div id="hud-lasttime">LAST <span id="lasttime-value">--:--.---</span></div>
+          <div id="hud-coins">🪙 <span id="coins-value">0</span></div>
         </div>
         <div id="hud-minimap"><canvas id="minimap-canvas" width="180" height="180"></canvas></div>
       </div>
@@ -57,9 +58,62 @@
     </div>
     <div id="rotate-hint"><div>🔄 ROTATE YOUR DEVICE<br /><span>landscape works best</span></div></div>
     <div id="countdown" class="hidden"></div>
-    <div id="start-screen">
+
+    <!-- splash: first screen, doubles as the audio-unlock gesture -->
+    <div id="splash-screen" class="screen">
       <h1 class="title">NITRO<span class="title-accent">RUSH</span></h1>
-      <p class="subtitle">PROJECT OVERSTEER &mdash; KART RACING PROTOTYPE</p>
+      <p class="subtitle">PROJECT OVERSTEER &mdash; ALPHA</p>
+      <button id="splash-start" class="big-btn primary" disabled>PRESS START</button>
+      <button id="fullscreen-button" class="hidden">⛶ FULLSCREEN</button>
+      <p id="ios-hint" class="hidden">
+        Fullscreen on iPhone: Share → Add to Home Screen（分享 → 加入主畫面）
+      </p>
+      <p id="loading-status">loading physics...</p>
+    </div>
+
+    <!-- main menu -->
+    <div id="main-menu" class="screen hidden">
+      <h1 class="title small">NITRO<span class="title-accent">RUSH</span></h1>
+      <div id="profile-bar">
+        <span class="coin-chip">🪙 <span id="profile-coins">0</span></span>
+        <span>RACES <span id="profile-races">0</span></span>
+        <span>WINS <span id="profile-wins">0</span></span>
+      </div>
+      <div class="menu-stack">
+        <button id="menu-race" class="big-btn primary">RACE</button>
+        <button id="menu-garage" class="big-btn">GARAGE</button>
+        <button id="menu-settings" class="big-btn">SETTINGS</button>
+      </div>
+    </div>
+
+    <!-- garage: vehicle select / buy + upgrades -->
+    <div id="garage-screen" class="screen hidden">
+      <h2>GARAGE</h2>
+      <p class="coins-line">🪙 <span id="garage-coins">0</span></p>
+      <div id="vehicle-list"></div>
+      <div id="upgrade-panel"></div>
+      <button id="garage-back" class="back-btn">◀ BACK</button>
+    </div>
+
+    <!-- settings -->
+    <div id="settings-screen" class="screen hidden">
+      <h2>SETTINGS</h2>
+      <div class="setting-row">
+        <label for="bgm-volume">MUSIC</label>
+        <input id="bgm-volume" type="range" min="0" max="100" value="50" />
+        <span id="bgm-volume-value">50%</span>
+      </div>
+      <div class="setting-row">
+        <label for="sfx-volume">SFX</label>
+        <input id="sfx-volume" type="range" min="0" max="100" value="100" />
+        <span id="sfx-volume-value">100%</span>
+      </div>
+      <button id="settings-back" class="back-btn">◀ BACK</button>
+    </div>
+
+    <!-- race setup -->
+    <div id="setup-screen" class="screen hidden">
+      <h2>RACE SETUP</h2>
       <p id="online-status" class="hidden"></p>
       <div class="menu-block">
         <p class="menu-label">MODE</p>
@@ -70,10 +124,8 @@
       </div>
       <div class="menu-block">
         <p class="menu-label">TRACK</p>
-        <div class="track-options">
-          <button class="track-btn selected" data-track="sunrise">SUNRISE CIRCUIT</button>
-          <button class="track-btn" data-track="thunder">THUNDER LOOP</button>
-        </div>
+        <div class="track-options" id="track-options"></div>
+        <p id="track-record" class="record-line"></p>
       </div>
       <div class="menu-block">
         <p class="menu-label">LAPS</p>
@@ -83,25 +135,27 @@
           <button class="lap-btn" data-laps="5">5</button>
         </div>
       </div>
-      <button id="start-button" disabled>START RACE</button>
+      <button id="start-button" class="big-btn primary">START RACE</button>
       <div class="controls-help">
         <span>W accelerate</span><span>S brake/reverse</span><span>A/D steer</span>
         <span>SHIFT drift</span><span>CTRL nitro</span><span>R reset kart</span>
         <span>M music</span><span>🎮 gamepad supported</span>
       </div>
-      <button id="fullscreen-button" class="hidden">⛶ FULLSCREEN</button>
-      <p id="ios-hint" class="hidden">
-        Fullscreen on iPhone: Share → Add to Home Screen（分享 → 加入主畫面）
-      </p>
-      <p id="loading-status">loading physics...</p>
+      <button id="setup-back" class="back-btn">◀ BACK</button>
     </div>
-    <div id="results-screen" class="hidden">
+
+    <!-- results -->
+    <div id="results-screen" class="screen hidden">
       <h2>RACE RESULTS</h2>
       <table id="results-table">
         <thead><tr><th>#</th><th>RACER</th><th>TOTAL</th><th>BEST LAP</th></tr></thead>
         <tbody id="results-body"></tbody>
       </table>
-      <button id="restart-button">RACE AGAIN</button>
+      <div id="results-rewards" class="hidden"></div>
+      <div class="results-buttons">
+        <button id="restart-button" class="big-btn primary">RACE AGAIN</button>
+        <button id="results-menu" class="big-btn">MAIN MENU</button>
+      </div>
     </div>
   </div>
   <script type="module" src="/src/main.ts"></script>

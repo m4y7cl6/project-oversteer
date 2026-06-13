@@ -18,7 +18,9 @@ const ROOM = `T${Date.now() % 100000}`;
   guest.on('pageerror', (e) => errors.push(`guest: ${e.message}`));
 
   await host.goto(`${URL}/?room=${ROOM}&name=HOSTY`, { waitUntil: 'load' });
-  await host.waitForSelector('#start-button:not([disabled])', { timeout: 30000 });
+  await host.waitForSelector('#splash-start:not([disabled])', { timeout: 30000 });
+  await host.click('#splash-start');
+  await host.click('#menu-race');
   await guest.goto(`${URL}/?room=${ROOM}&name=GUESTY`, { waitUntil: 'load' });
   await guest.waitForFunction(
     () => window.__NITRO_RUSH__ && window.__NITRO_RUSH__.net &&

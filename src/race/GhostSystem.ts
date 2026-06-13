@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Kart } from '../vehicle/Kart';
 import { KART } from '../game/config';
+import { encodeFrames, decodeFrames } from '../replay/ReplaySystem';
 
 const RECORD_HZ = 20; // body pose sampled every 3rd physics tick
 const FLOATS_PER_FRAME = 7; // x y z qx qy qz qw
@@ -13,20 +14,6 @@ interface StoredGhost {
 
 function storageKey(trackId: string, laps: number): string {
   return `nr-ghost:${trackId}:${laps}`;
-}
-
-function encode(frames: Float32Array): string {
-  let bin = '';
-  const bytes = new Uint8Array(frames.buffer);
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-
-function decode(b64: string): Float32Array {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new Float32Array(bytes.buffer);
 }
 
 const _pa = new THREE.Vector3();
@@ -64,7 +51,7 @@ export class GhostSystem {
       if (!raw) return;
       const stored = JSON.parse(raw) as StoredGhost;
       this.bestTime = stored.time;
-      this.playback = decode(stored.data);
+      this.playback = decodeFrames(stored.data);
     } catch {
       return; // corrupt/absent ghost: run without one
     }
@@ -124,7 +111,7 @@ export class GhostSystem {
     if (totalTime >= this.bestTime) return false;
     try {
       const frames = new Float32Array(this.recording);
-      const stored: StoredGhost = { time: totalTime, hz: RECORD_HZ, data: encode(frames) };
+      const stored: StoredGhost = { time: totalTime, hz: RECORD_HZ, data: encodeFrames(frames) };
       localStorage.setItem(storageKey(this.trackId, this.laps), JSON.stringify(stored));
     } catch {
       // storage full/blocked: record stands for this session only

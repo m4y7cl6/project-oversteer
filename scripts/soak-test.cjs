@@ -15,7 +15,9 @@ const TRACK = process.env.TRACK || '';
   page.on('pageerror', (err) => errors.push(err.message));
 
   await page.goto(URL, { waitUntil: 'load', timeout: 30000 });
-  await page.waitForSelector('#start-button:not([disabled])', { timeout: 30000 });
+  await page.waitForSelector('#splash-start:not([disabled])', { timeout: 30000 });
+  await page.click('#splash-start');
+  await page.click('#menu-race');
   if (TRACK) {
     await page.click(`.track-btn[data-track="${TRACK}"]`);
     await page.waitForTimeout(600);

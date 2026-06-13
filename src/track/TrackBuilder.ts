@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { TrackData, TrackSample } from './TrackData';
 import { TRACK } from '../game/config';
-import { roadTexture, checkerTexture, barrierTexture, grassTexture } from './textures';
-import { TrackDefinition } from './tracks';
+import { roadTexture, checkerTexture, barrierTexture, groundTexture, buildingTexture } from './textures';
+import { TrackDefinition, TrackThemeConfig, THEMES } from './tracks';
 
 /**
  * Builds a circuit from a TrackDefinition: centerline samples,
@@ -28,8 +28,9 @@ export class TrackBuilder {
 
     const data = new TrackData(samples, totalLength, checkpointIndices, TRACK.ROAD_HALF_WIDTH);
 
+    const theme = THEMES[def.theme];
     const group = new THREE.Group();
-    group.add(this.buildGround(data));
+    group.add(this.buildGround(data, theme));
     group.add(this.buildRoad(data));
     group.add(this.buildStartLine(data));
     group.add(this.buildWalls(data));
@@ -37,9 +38,9 @@ export class TrackBuilder {
     const gate = this.buildStartGate(data);
     gate.name = 'start-gate';
     group.add(gate);
-    const trees = this.buildTrees(data, def.seed);
-    trees.name = 'trees';
-    group.add(trees);
+    const props = this.buildProps(data, def.seed, theme);
+    props.name = 'trees';
+    group.add(props);
     return { data, group };
   }
 
@@ -109,11 +110,12 @@ export class TrackBuilder {
     return samples;
   }
 
-  private buildGround(data: TrackData): THREE.Mesh {
+  private buildGround(data: TrackData, theme: TrackThemeConfig): THREE.Mesh {
     const { center } = trackBounds(data);
+    const g = theme.ground;
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(1000, 1000),
-      new THREE.MeshLambertMaterial({ map: grassTexture() }),
+      new THREE.MeshLambertMaterial({ map: groundTexture(g.base, g.speckleA, g.speckleB) }),
     );
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(center.x, -0.02, center.z);
@@ -219,42 +221,114 @@ export class TrackBuilder {
     return group;
   }
 
-  private buildTrees(data: TrackData, seed: number): THREE.Group {
+  /**
+   * Scatter theme props (trees / pines / cacti / buildings) on the terrain,
+   * keeping a clear corridor around the road. Deterministic via the seed.
+   */
+  private buildProps(data: TrackData, seed: number, theme: TrackThemeConfig): THREE.Group {
     const group = new THREE.Group();
-    const trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, 1.6, 6);
-    const crownGeo = new THREE.ConeGeometry(1.6, 3.6, 7);
-    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6d4c2f });
-    const crownMat = new THREE.MeshLambertMaterial({ color: 0x2e7d32 });
-    const crownMat2 = new THREE.MeshLambertMaterial({ color: 0x388e3c });
+    const builders: Record<TrackThemeConfig['props'], (rand: () => number) => THREE.Object3D> = {
+      trees: (rand) => this.makeTree(rand, 0x2e7d32, 0x388e3c),
+      pines: (rand) => this.makeTree(rand, 0x1b5e20, 0x2e7d32, 1.4),
+      cacti: (rand) => this.makeCactus(rand),
+      buildings: (rand) => this.makeBuilding(rand),
+    };
+    const make = builders[theme.props];
+    // buildings sit further back and are sparser than vegetation
+    const isCity = theme.props === 'buildings';
+    const clearance = isCity ? 26 : 19;
+    const count = theme.props === 'pines' ? 130 : isCity ? 55 : 90;
 
-    const { min, max } = trackBounds(data, 60);
+    const { min, max } = trackBounds(data, isCity ? 80 : 60);
     const rand = mulberry32(seed);
     let placed = 0;
     let attempts = 0;
-    while (placed < 90 && attempts < 1200) {
+    while (placed < count && attempts < 1600) {
       attempts++;
       const x = min.x + rand() * (max.x - min.x);
       const z = min.z + rand() * (max.z - min.z);
       const p = new THREE.Vector3(x, 0, z);
-      // keep trees off the road corridor
+      // keep props off the road corridor
       let minD = Infinity;
       for (let i = 0; i < data.sampleCount; i += 4) {
         minD = Math.min(minD, data.samples[i].pos.distanceToSquared(p));
       }
-      if (minD < 19 * 19 || minD > 200 * 200) continue;
-      const tree = new THREE.Group();
-      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-      trunk.position.y = 0.8;
-      const crown = new THREE.Mesh(crownGeo, rand() > 0.5 ? crownMat : crownMat2);
-      crown.position.y = 3.2;
-      const scale = 0.8 + rand() * 0.9;
-      tree.add(trunk, crown);
-      tree.scale.setScalar(scale);
-      tree.position.copy(p);
-      group.add(tree);
+      if (minD < clearance * clearance || minD > 200 * 200) continue;
+      const prop = make(rand);
+      prop.position.copy(p);
+      group.add(prop);
       placed++;
     }
     return group;
+  }
+
+  private treeGeos?: { trunk: THREE.CylinderGeometry; crown: THREE.ConeGeometry };
+
+  private makeTree(rand: () => number, crownA: number, crownB: number, heightScale = 1): THREE.Group {
+    this.treeGeos ??= {
+      trunk: new THREE.CylinderGeometry(0.25, 0.35, 1.6, 6),
+      crown: new THREE.ConeGeometry(1.6, 3.6, 7),
+    };
+    const tree = new THREE.Group();
+    const trunk = new THREE.Mesh(
+      this.treeGeos.trunk, new THREE.MeshLambertMaterial({ color: 0x6d4c2f }),
+    );
+    trunk.position.y = 0.8;
+    const crown = new THREE.Mesh(
+      this.treeGeos.crown,
+      new THREE.MeshLambertMaterial({ color: rand() > 0.5 ? crownA : crownB }),
+    );
+    crown.position.y = 3.2;
+    crown.scale.y = heightScale;
+    tree.add(trunk, crown);
+    tree.scale.setScalar(0.8 + rand() * 0.9);
+    return tree;
+  }
+
+  private makeCactus(rand: () => number): THREE.Group {
+    const cactus = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: rand() > 0.4 ? 0x4c8c3f : 0x6aa84f });
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 3.4, 7), mat);
+    trunk.position.y = 1.7;
+    cactus.add(trunk);
+    // 1–2 arms: short cylinders sprouting sideways then up
+    const arms = 1 + Math.floor(rand() * 2);
+    for (let a = 0; a < arms; a++) {
+      const side = a === 0 ? 1 : -1;
+      const out = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 1.0, 6), mat);
+      out.rotation.z = side * Math.PI / 2;
+      out.position.set(side * 0.85, 1.4 + rand() * 0.8, 0);
+      const up = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 1.3, 6), mat);
+      up.position.set(side * 1.3, out.position.y + 0.75, 0);
+      cactus.add(out, up);
+    }
+    cactus.scale.setScalar(0.7 + rand() * 0.9);
+    cactus.rotation.y = rand() * Math.PI * 2;
+    return cactus;
+  }
+
+  private buildingMat?: THREE.MeshLambertMaterial;
+  private buildingRoofMat?: THREE.MeshLambertMaterial;
+
+  private makeBuilding(rand: () => number): THREE.Group {
+    this.buildingMat ??= new THREE.MeshLambertMaterial({ map: buildingTexture() });
+    this.buildingRoofMat ??= new THREE.MeshLambertMaterial({ color: 0x10131c });
+    const w = 10 + rand() * 14;
+    const d = 10 + rand() * 14;
+    const h = 18 + rand() * 42;
+    const block = new THREE.Group();
+    const tower = new THREE.Mesh(
+      new THREE.BoxGeometry(w, h, d),
+      [
+        this.buildingMat, this.buildingMat, // ±x facades
+        this.buildingRoofMat, this.buildingRoofMat, // roof + base
+        this.buildingMat, this.buildingMat, // ±z facades
+      ],
+    );
+    tower.position.y = h / 2;
+    block.add(tower);
+    block.rotation.y = Math.floor(rand() * 4) * (Math.PI / 2) + (rand() - 0.5) * 0.2;
+    return block;
   }
 }
 

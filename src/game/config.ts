@@ -43,18 +43,32 @@ export const DRIFT = {
   SCORE_RATE: 22, // points per second per radian of slip
   GAUGE_PER_SCORE: 0.030, // nitro gauge % gained per drift point
 
-  // KartRider-style release boost: hold a drift long enough and letting go
-  // grants an instant mini-boost (tier 1 "blue spark", tier 2 "orange spark")
-  TIER1_SCORE: 40, // ≈1 s of solid sliding
-  TIER2_SCORE: 110,
-  TIER1_BOOST_TIME: 0.9, // s of extra accel after release
-  TIER2_BOOST_TIME: 1.6,
-  TIER1_KICK: 2.5, // instant m/s on release
-  TIER2_KICK: 4.5,
-  TIER1_MAX_BONUS: 4, // max-speed headroom while the mini-boost runs
-  TIER2_MAX_BONUS: 7,
   MINI_BOOST_ACCEL: 18, // extra m/s^2 while a mini-boost is active
 };
+
+/** One release-boost tier (KartRider-style spark color). */
+export interface DriftTier {
+  name: 'BLUE' | 'RED' | 'PURPLE';
+  /** Drift score required to reach this tier. */
+  score: number;
+  /** Spark/smoke color while sliding at this tier. */
+  color: number;
+  /** Seconds of extra accel after release. */
+  boostTime: number;
+  /** Instant m/s on release. */
+  kick: number;
+  /** Max-speed headroom while the mini-boost runs. */
+  maxBonus: number;
+  /** Bonus nitro gauge granted on release — better drifts charge nitro faster. */
+  nitroBonus: number;
+}
+
+/** Release-boost tiers, ascending: hold a drift longer for a bigger reward. */
+export const DRIFT_TIERS: DriftTier[] = [
+  { name: 'BLUE',   score: 40,  color: 0x55d6ff, boostTime: 0.9, kick: 2.5, maxBonus: 4,  nitroBonus: 5 },
+  { name: 'RED',    score: 110, color: 0xff5252, boostTime: 1.6, kick: 4.5, maxBonus: 7,  nitroBonus: 12 },
+  { name: 'PURPLE', score: 210, color: 0xd05cff, boostTime: 2.4, kick: 6.5, maxBonus: 10, nitroBonus: 24 },
+];
 
 export const NITRO = {
   GAUGE_MAX: 100,
