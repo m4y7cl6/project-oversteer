@@ -421,10 +421,8 @@ export class Kart {
         if (node.position.z > 0) this.frontWheels.push(node);
         return;
       }
-      // Kenney kart characters may be named "Character_Oobi", "Oobi", "Oodi",
-      // "Ooli", "Oopi", "Oozi", "Driver", etc. — match any of these so we
-      // don't add a duplicate driver on top.
-      if (/character|driver|pilot|oo[bdiopsz]i/i.test(node.name)) {
+      // All Kenney kart-oo* GLBs have a node named exactly "character".
+      if (/^character$/i.test(node.name)) {
         hasCharacter = true;
         return;
       }
@@ -452,7 +450,15 @@ export class Kart {
     if (!hasCharacter) {
       const darkMat = new THREE.MeshLambertMaterial({ color: 0x1c1f26 });
       const accentMat = new THREE.MeshLambertMaterial({ color: this.spec.accent });
-      const headMat = new THREE.MeshLambertMaterial({ color: this.spec.color });
+      // Head uses spec.color; if spec.color is very bright (e.g. DRIFTA white)
+      // the accent gives better contrast against the car body.
+      const lum = ((this.spec.color >> 16 & 0xff) * 299 +
+                   (this.spec.color >> 8  & 0xff) * 587 +
+                   (this.spec.color       & 0xff) * 114) / 255000;
+      const headColor = lum > 0.72 ? this.spec.accent : this.spec.color;
+      const headMat = new THREE.MeshLambertMaterial({ color: headColor });
+      // bright yellow visor — visible on any car colour
+      const visorMat = new THREE.MeshLambertMaterial({ color: 0xffee00 });
       const seat = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.24), darkMat);
       seat.position.set(0, roofY + 0.06, -0.4);
       this.chassis.add(seat);
@@ -462,7 +468,7 @@ export class Kart {
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 10), headMat);
       head.position.set(0, roofY + 0.44, -0.16);
       this.chassis.add(head);
-      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.10, 0.10), darkMat);
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.10, 0.10), visorMat);
       visor.position.set(0, roofY + 0.44, 0.04);
       this.chassis.add(visor);
     }
