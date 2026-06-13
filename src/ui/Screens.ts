@@ -6,7 +6,7 @@ import {
 import { TRACKS } from '../track/tracks';
 
 export type ScreenName =
-  | 'splash' | 'menu' | 'garage' | 'settings' | 'setup' | 'results' | 'none';
+  | 'splash' | 'menu' | 'garage' | 'settings' | 'setup' | 'results' | 'online' | 'none';
 
 /** Coin breakdown shown on the results screen. */
 export interface RaceRewards {
@@ -24,10 +24,16 @@ export interface RaceRewards {
  * splash → main menu → (garage / settings / race setup) → race → results.
  * Pure view layer — every decision is delegated to callbacks set by Game.
  */
+function randomCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  return Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
 export class Screens {
   private screens: Record<Exclude<ScreenName, 'none'>, HTMLElement> = {
     splash: document.getElementById('splash-screen')!,
     menu: document.getElementById('main-menu')!,
+    online: document.getElementById('online-screen')!,
     garage: document.getElementById('garage-screen')!,
     settings: document.getElementById('settings-screen')!,
     setup: document.getElementById('setup-screen')!,
@@ -42,6 +48,17 @@ export class Screens {
   private trackOptions = document.getElementById('track-options')!;
   private trackRecord = document.getElementById('track-record')!;
 
+  // ---- online lobby elements ----
+  private onlineNameEl = document.getElementById('online-name') as HTMLInputElement;
+  private onlineRoomEl = document.getElementById('online-room') as HTMLInputElement;
+  private onlineServerEl = document.getElementById('online-server') as HTMLInputElement;
+  private onlineJoinBtn = document.getElementById('online-join') as HTMLButtonElement;
+  private onlineErrorEl = document.getElementById('online-error')!;
+  private lobbyPanelEl = document.getElementById('lobby-panel')!;
+  private lobbyMembersListEl = document.getElementById('lobby-members-list')!;
+  private lobbySetupBtn = document.getElementById('lobby-setup') as HTMLButtonElement;
+  private lobbyWaitEl = document.getElementById('lobby-wait')!;
+
   selectedLaps = 3;
   selectedTrack = 'sunrise';
   selectedMode: 'race' | 'timetrial' = 'race';
@@ -49,9 +66,12 @@ export class Screens {
   // ---- navigation callbacks (wired by Game) ----
   onSplashStart?: () => void;
   onMenuRace?: () => void;
+  onMenuOnline?: () => void;
   onMenuGarage?: () => void;
   onMenuSettings?: () => void;
   onBackToMenu?: () => void;
+  /** Separate back handler for setup screen (may return to online lobby when connected). */
+  onSetupBack?: () => void;
   onResultsMenu?: () => void;
   /** Set by Game so the menu background can preview the selected track. */
   onTrackChange?: (trackId: string) => void;
@@ -62,6 +82,11 @@ export class Screens {
   onSettingsChange?: (patch: { bgmVolume?: number; sfxVolume?: number }) => void;
   /** Any button press (UI click feedback). */
   onUiClick?: () => void;
+  // ---- online lobby callbacks ----
+  onOnlineJoin?: (name: string, room: string, server: string) => void;
+  onOnlineBack?: () => void;
+  onLobbySetup?: () => void;
+  onLobbyCopy?: (room: string, server: string) => void;
 
   constructor() {
     const click = (id: string, fn: () => void) => {
@@ -72,12 +97,27 @@ export class Screens {
     };
     click('splash-start', () => this.onSplashStart?.());
     click('menu-race', () => this.onMenuRace?.());
+    click('menu-online', () => this.onMenuOnline?.());
     click('menu-garage', () => this.onMenuGarage?.());
     click('menu-settings', () => this.onMenuSettings?.());
     click('garage-back', () => this.onBackToMenu?.());
     click('settings-back', () => this.onBackToMenu?.());
-    click('setup-back', () => this.onBackToMenu?.());
+    click('setup-back', () => this.onSetupBack?.());
     click('results-menu', () => this.onResultsMenu?.());
+    // online lobby
+    click('online-back', () => this.onOnlineBack?.());
+    click('online-random', () => { this.onlineRoomEl.value = randomCode(); });
+    click('online-join', () => {
+      const name = this.onlineNameEl.value.trim() || 'PLAYER';
+      const room = this.onlineRoomEl.value.trim().toUpperCase() || randomCode();
+      const server = this.onlineServerEl.value.trim() || 'wss://nitro-rush-server.onrender.com';
+      this.onlineRoomEl.value = room;
+      this.onOnlineJoin?.(name, room, server);
+    });
+    click('lobby-setup', () => this.onLobbySetup?.());
+    click('lobby-copy', () => {
+      this.onLobbyCopy?.(this.onlineRoomEl.value, this.onlineServerEl.value);
+    });
 
     document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -352,5 +392,44 @@ export class Screens {
   hideResults(): void {
     this.screens.results.classList.add('hidden');
     this.rewardsEl.classList.add('hidden');
+  }
+
+  // ---------------- online lobby ----------------
+
+  /** Reset to input state (called each time ONLINE is opened). Preserves name if already set. */
+  initOnlineScreen(): void {
+    if (!this.onlineNameEl.value) {
+      this.onlineNameEl.value = `P${Math.floor(Math.random() * 90 + 10)}`;
+    }
+    this.onlineRoomEl.value = randomCode();
+    this.onlineJoinBtn.disabled = false;
+    this.onlineJoinBtn.textContent = 'JOIN ROOM';
+    this.onlineErrorEl.classList.add('hidden');
+    this.lobbyPanelEl.classList.add('hidden');
+  }
+
+  setOnlineJoining(): void {
+    this.onlineJoinBtn.disabled = true;
+    this.onlineJoinBtn.textContent = 'CONNECTING…';
+    this.onlineErrorEl.classList.add('hidden');
+  }
+
+  renderLobby(members: { name: string }[], isHost: boolean): void {
+    this.onlineJoinBtn.disabled = true;
+    this.onlineErrorEl.classList.add('hidden');
+    this.lobbyPanelEl.classList.remove('hidden');
+    this.lobbyMembersListEl.innerHTML = members
+      .map((m, i) => `<div class="lobby-member">${i === 0 ? '👑' : '🎮'} ${m.name}</div>`)
+      .join('');
+    this.lobbySetupBtn.classList.toggle('hidden', !isHost);
+    this.lobbyWaitEl.classList.toggle('hidden', isHost);
+  }
+
+  setLobbyError(msg: string): void {
+    this.onlineJoinBtn.disabled = false;
+    this.onlineJoinBtn.textContent = 'JOIN ROOM';
+    this.onlineErrorEl.textContent = `ERROR: ${msg.toUpperCase()}`;
+    this.onlineErrorEl.classList.remove('hidden');
+    this.lobbyPanelEl.classList.add('hidden');
   }
 }

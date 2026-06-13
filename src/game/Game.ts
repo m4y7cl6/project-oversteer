@@ -294,16 +294,15 @@ export class Game {
 
   // ---------------- online session ----------------
 
-  /** Join a room when the URL carries ?room=CODE (&server=ws://..&name=..). */
-  private setupNet(): void {
-    const params = new URLSearchParams(location.search);
-    const room = params.get('room');
-    if (!room) return;
-    const server = params.get('server') ?? 'ws://localhost:8787';
-    const name = params.get('name') ?? `P${Math.floor(Math.random() * 90 + 10)}`;
+  /** Connect to a room server with the given credentials. Called from UI or URL params. */
+  private connectToRoom(name: string, room: string, server: string): void {
+    this.screens.setOnlineJoining();
 
-    const lobby = () => {
-      const n = this.net!;
+    const lobbyUpdate = () => {
+      if (!this.net) return;
+      const n = this.net;
+      this.screens.renderLobby(n.members, n.isHost);
+      // also keep setup-screen status in sync in case host is already there
       this.screens.setOnlineStatus(
         `ONLINE · ROOM ${n.room} · ${n.members.length} PLAYER${n.members.length > 1 ? 'S' : ''}` +
         (n.isHost ? ' · YOU ARE HOST' : ''),
@@ -317,8 +316,8 @@ export class Game {
     };
 
     this.net = new NetClient(server, room, name, {
-      onJoined: lobby,
-      onMembers: lobby,
+      onJoined: lobbyUpdate,
+      onMembers: lobbyUpdate,
       onStart: (config) => this.startOnlineRace(config),
       onState: (fromId, st) => {
         const r = this.remotes.get(fromId);
@@ -331,14 +330,25 @@ export class Game {
         if (r.samples.length > 30) r.samples.shift();
       },
       onError: (reason) => {
+        this.screens.setLobbyError(reason);
         this.screens.setOnlineStatus(`ONLINE ERROR: ${reason}`, true);
         this.screens.setStartButton('START RACE', true);
         this.net = undefined;
       },
     });
-    this.screens.setOnlineStatus('CONNECTING…');
-    this.screens.setStartButton('WAITING FOR HOST…', false);
     this.net.connect();
+  }
+
+  /** Auto-connect when the URL carries ?room=CODE (&server=ws://..&name=..). */
+  private setupNet(): void {
+    const params = new URLSearchParams(location.search);
+    const room = params.get('room');
+    if (!room) return;
+    const server = params.get('server') ?? 'ws://localhost:8787';
+    const name = params.get('name') ?? `P${Math.floor(Math.random() * 90 + 10)}`;
+    this.screens.initOnlineScreen();
+    this.screens.show('online');
+    this.connectToRoom(name, room, server);
   }
 
   /** Everyone in the room starts the same race (host-picked track/laps). */
@@ -489,6 +499,10 @@ export class Game {
 
   /** Back to the main menu with an idle grid as the backdrop. */
   private toMenu(): void {
+    if (this.net) {
+      this.net.disconnect();
+      this.net = undefined;
+    }
     for (const e of this.entries) {
       e.kart.visual.visible = true;
       e.progress = new Progress();
@@ -518,6 +532,10 @@ export class Game {
       s.renderTracks(this.profile);
       s.show('setup');
     };
+    s.onMenuOnline = () => {
+      s.initOnlineScreen();
+      s.show('online');
+    };
     s.onMenuGarage = () => {
       s.renderGarage(this.profile);
       s.show('garage');
@@ -530,7 +548,43 @@ export class Game {
       s.updateProfileBar(this.profile);
       s.show('menu');
     };
+    s.onSetupBack = () => {
+      if (this.net?.connected) {
+        s.renderLobby(this.net.members, this.net.isHost);
+        s.show('online');
+      } else {
+        s.updateProfileBar(this.profile);
+        s.show('menu');
+      }
+    };
     s.onResultsMenu = () => this.toMenu();
+    s.onOnlineBack = () => {
+      if (this.net) {
+        this.net.disconnect();
+        this.net = undefined;
+      }
+      s.updateProfileBar(this.profile);
+      s.show('menu');
+    };
+    s.onOnlineJoin = (name, room, server) => {
+      this.connectToRoom(name, room, server);
+    };
+    s.onLobbySetup = () => {
+      if (!this.net) return;
+      const n = this.net;
+      s.setOnlineStatus(
+        `ONLINE · ROOM ${n.room} · ${n.members.length} PLAYER${n.members.length > 1 ? 'S' : ''} · YOU ARE HOST`,
+      );
+      s.setStartButton('START RACE', true);
+      s.renderTracks(this.profile);
+      s.show('setup');
+    };
+    s.onLobbyCopy = (room, server) => {
+      const base = location.href.split('?')[0];
+      const params = new URLSearchParams({ room, server, name: 'PLAYER' });
+      const link = `${base}?${params}`;
+      navigator.clipboard?.writeText(link).catch(() => {});
+    };
 
     s.onSettingsChange = (patch) => {
       this.profile.updateSettings(patch);

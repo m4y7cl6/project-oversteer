@@ -112,6 +112,11 @@ export class NetClient {
     this.send({ t: 'state', state });
   }
 
+  disconnect(): void {
+    this.ws?.close();
+    this.connected = false;
+  }
+
   /** Grid slot for a member: order of the members array (stable join order). */
   slotOf(id: number): number {
     const i = this.members.findIndex((m) => m.id === id);
