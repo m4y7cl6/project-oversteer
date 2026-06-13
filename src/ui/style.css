@@ -180,6 +180,19 @@ body.touch-mode #hud:not(.hidden) ~ #touch-controls { display: block; }
 /* desktop HUD overlaps the thumb zones; lift it on touch devices */
 body.touch-mode #hud-bottom { padding-bottom: 130px; }
 
+/* speed display in the center-bottom blocks the kart on small screens;
+   move it to the top-left just below the position indicator instead */
+body.touch-mode #hud-speed {
+  position: fixed;
+  top: 74px;
+  left: 14px;
+  padding: 3px 10px;
+  border-bottom-width: 2px;
+  z-index: 15;
+}
+body.touch-mode #speed-value { font-size: 22px; }
+body.touch-mode #speed-unit  { font-size: 10px; }
+
 #touch-steer {
   position: absolute;
   left: 18px;

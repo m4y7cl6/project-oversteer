@@ -409,8 +409,11 @@ export class Kart {
     model.position.x -= center.x;
     model.position.z -= center.z;
     model.position.y -= box.min.y;
+    // roof height after normalization (used for driver placement below)
+    const roofY = box.max.y - box.min.y;
 
     // wheel nodes spin; front wheels (toward +z) also steer (Y before X)
+    let hasCharacter = false;
     model.traverse((node) => {
       if (/wheel/i.test(node.name)) {
         node.rotation.order = 'YXZ';
@@ -421,7 +424,10 @@ export class Kart {
       // tint body meshes to the racer color so karts match HUD/minimap.
       // Only textured materials (palette colormap carries the detail);
       // untextured ones (racing-kit cars) keep their authored colors.
-      if (/character/i.test(node.name)) return;
+      if (/character/i.test(node.name)) {
+        hasCharacter = true;
+        return;
+      }
       const mesh = node as THREE.Mesh;
       if (!mesh.isMesh) return;
       const tint = (m: THREE.Material): THREE.Material => {
@@ -437,6 +443,23 @@ export class Kart {
     });
 
     this.chassis.add(model);
+
+    // Models that have no character mesh (closed-cockpit race cars) get a
+    // procedural driver placed just above the roof so "my person" is always visible.
+    if (!hasCharacter) {
+      const darkMat = new THREE.MeshLambertMaterial({ color: 0x1c1f26 });
+      const accentMat = new THREE.MeshLambertMaterial({ color: this.spec.accent });
+      const headMat = new THREE.MeshLambertMaterial({ color: this.spec.color });
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.28, 0.28), accentMat);
+      torso.position.set(0, roofY + 0.10, -0.08);
+      this.chassis.add(torso);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), headMat);
+      head.position.set(0, roofY + 0.32, -0.08);
+      this.chassis.add(head);
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.08, 0.08), darkMat);
+      visor.position.set(0, roofY + 0.32, 0.06);
+      this.chassis.add(visor);
+    }
   }
 
   private buildProcedural(): void {
