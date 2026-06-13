@@ -121,15 +121,22 @@ export class RaceManager {
     });
   }
 
-  /** Keep the pack close: trailing AI get a touch more speed, leaders less. */
+  /** Keep the pack close: trailing AI get a touch more speed, leaders less.
+   *  Also blends in real-time speed tracking so AI reacts to the player's
+   *  current pace (nitro burst, hard braking) rather than only lap position. */
   private updateRubberBand(): void {
     const playerScore = this.player.progress.score;
+    const playerSpeed = this.player.kart.state.forwardSpeed;
     for (const e of this.entries) {
       if (!e.ai) continue;
       const gateDiff = (playerScore - e.progress.score) / 10000; // + = AI behind
-      e.ai.speedMultiplier = gateDiff >= 0
+      const posBand = gateDiff >= 0
         ? 1 + Math.min(gateDiff * AI.RUBBER_BAND_BEHIND, 0.14)
         : 1 + Math.max(gateDiff * AI.RUBBER_BAND_AHEAD, -0.08);
+      // Speed-gap signal: AI breathes with the player's current pace.
+      const speedGap = playerSpeed - e.kart.state.forwardSpeed;
+      const speedBand = Math.max(-0.06, Math.min(0.12, speedGap * AI.SPEED_MATCH_GAIN));
+      e.ai.speedMultiplier = posBand + speedBand;
     }
   }
 }

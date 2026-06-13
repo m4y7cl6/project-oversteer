@@ -116,6 +116,8 @@ export const AI = {
   /** Rubber banding: speed multiplier slope per checkpoint behind/ahead of the player. */
   RUBBER_BAND_BEHIND: 0.022,
   RUBBER_BAND_AHEAD: 0.012,
+  /** Per-(m/s) speed-gap contribution to speedMultiplier; clamps ±[0.06, 0.12]. */
+  SPEED_MATCH_GAIN: 0.012,
 };
 
 export interface RacerSpec {
