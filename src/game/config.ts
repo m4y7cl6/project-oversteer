@@ -109,7 +109,9 @@ export const AI = {
   LOOKAHEAD_MIN: 7,
   LOOKAHEAD_SPEED_FACTOR: 0.55, // extra lookahead per m/s
   STEER_GAIN: 1.4,
-  CORNER_LAT_ACCEL: 13, // m/s^2 cornering limit; target speed = sqrt(a/curvature)
+  CORNER_LAT_ACCEL: 18, // m/s^2 cornering limit; target speed = sqrt(a/curvature)
+  BRAKE_LOOK_AHEAD_BASE: 7,   // base look-ahead distance (m) for corner braking
+  BRAKE_LOOK_AHEAD_SPEED: 0.55, // extra m of look-ahead per m/s of current speed
   AVOID_RADIUS: 4.2,
   AVOID_STEER: 0.55,
   NITRO_STRAIGHT_CURVATURE: 0.012, // may boost when curvature ahead is below this

@@ -92,7 +92,7 @@ export class AIController {
     ki.steer = THREE.MathUtils.clamp(steer, -1, 1);
 
     // ---- speed control: corner-limited target speed ----
-    const brakeDistance = 10 + Math.max(0, speed) * 0.9;
+    const brakeDistance = AI.BRAKE_LOOK_AHEAD_BASE + Math.max(0, speed) * AI.BRAKE_LOOK_AHEAD_SPEED;
     const curvAhead = this.track.maxCurvatureAhead(this.sampleHint, brakeDistance);
     const cornerSpeed = curvAhead > 1e-4
       ? Math.sqrt(AI.CORNER_LAT_ACCEL / curvAhead)
