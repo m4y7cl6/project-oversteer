@@ -421,13 +421,16 @@ export class Kart {
         if (node.position.z > 0) this.frontWheels.push(node);
         return;
       }
-      // tint body meshes to the racer color so karts match HUD/minimap.
-      // Only textured materials (palette colormap carries the detail);
-      // untextured ones (racing-kit cars) keep their authored colors.
-      if (/character/i.test(node.name)) {
+      // Kenney kart characters may be named "Character_Oobi", "Oobi", "Oodi",
+      // "Ooli", "Oopi", "Oozi", "Driver", etc. — match any of these so we
+      // don't add a duplicate driver on top.
+      if (/character|driver|pilot|oo[bdiopsz]i/i.test(node.name)) {
         hasCharacter = true;
         return;
       }
+      // tint body meshes to the racer color so karts match HUD/minimap.
+      // Only textured materials (palette colormap carries the detail);
+      // untextured ones (racing-kit cars) keep their authored colors.
       const mesh = node as THREE.Mesh;
       if (!mesh.isMesh) return;
       const tint = (m: THREE.Material): THREE.Material => {
@@ -444,20 +447,23 @@ export class Kart {
 
     this.chassis.add(model);
 
-    // Models that have no character mesh (closed-cockpit race cars) get a
-    // procedural driver placed just above the roof so "my person" is always visible.
+    // Models without a character mesh (race cars) get a full-size procedural
+    // driver sitting just above the roof — same proportions as buildProcedural().
     if (!hasCharacter) {
       const darkMat = new THREE.MeshLambertMaterial({ color: 0x1c1f26 });
       const accentMat = new THREE.MeshLambertMaterial({ color: this.spec.accent });
       const headMat = new THREE.MeshLambertMaterial({ color: this.spec.color });
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.28, 0.28), accentMat);
-      torso.position.set(0, roofY + 0.10, -0.08);
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.24), darkMat);
+      seat.position.set(0, roofY + 0.06, -0.4);
+      this.chassis.add(seat);
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.34, 0.30), accentMat);
+      torso.position.set(0, roofY + 0.14, -0.16);
       this.chassis.add(torso);
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), headMat);
-      head.position.set(0, roofY + 0.32, -0.08);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 10), headMat);
+      head.position.set(0, roofY + 0.44, -0.16);
       this.chassis.add(head);
-      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.08, 0.08), darkMat);
-      visor.position.set(0, roofY + 0.32, 0.06);
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.10, 0.10), darkMat);
+      visor.position.set(0, roofY + 0.44, 0.04);
       this.chassis.add(visor);
     }
   }
