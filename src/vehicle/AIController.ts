@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Kart } from './Kart';
 import { TrackData } from '../track/TrackData';
-import { AI, KART, NITRO } from '../game/config';
+import { AI, DRIFT, KART, NITRO } from '../game/config';
 
 const _toTarget = new THREE.Vector3();
 const _toOther = new THREE.Vector3();
@@ -102,8 +102,18 @@ export class AIController {
       cornerSpeed,
     );
 
+    // ---- drift through corners instead of braking ----
+    // Curvature just ahead (12 m window): if significant and already steering,
+    // slide through like a player would rather than scrubbing speed.
+    const curvClose = this.track.maxCurvatureAhead(this.sampleHint, 12);
+    const enterDrift = curvClose > 0.022 && Math.abs(ki.steer) > 0.25 && speed > DRIFT.MIN_SPEED;
+    const holdDrift  = this.kart.state.isDrifting && curvClose > 0.012;
+    ki.drift = (enterDrift || holdDrift) && !blockedAhead;
+
     if (blockedAhead) {
       ki.throttle = 0.25;
+    } else if (ki.drift) {
+      ki.throttle = 1; // full throttle through the slide
     } else if (speed < targetSpeed - 0.5) {
       ki.throttle = 1;
     } else if (speed > targetSpeed + 1.5) {
