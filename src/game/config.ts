@@ -109,7 +109,7 @@ export const AI = {
   LOOKAHEAD_MIN: 7,
   LOOKAHEAD_SPEED_FACTOR: 0.55, // extra lookahead per m/s
   STEER_GAIN: 1.4,
-  CORNER_LAT_ACCEL: 11, // m/s^2 cornering limit; target speed = sqrt(a/curvature)
+  CORNER_LAT_ACCEL: 13, // m/s^2 cornering limit; target speed = sqrt(a/curvature)
   AVOID_RADIUS: 4.2,
   AVOID_STEER: 0.55,
   NITRO_STRAIGHT_CURVATURE: 0.012, // may boost when curvature ahead is below this
@@ -133,10 +133,10 @@ export interface RacerSpec {
 export const RACERS: RacerSpec[] = [
   { name: 'YOU',    color: 0x00e5ff, accent: 0x055a66, skill: 1.0,  lineOffset: 0,    model: 'kart-oobi' },
   { name: 'VIPER',  color: 0xff1744, accent: 0x5d0a1a, skill: 1.0,  lineOffset: -2.2, model: 'kart-oodi' },
-  { name: 'JOLT',   color: 0xffea00, accent: 0x665e00, skill: 0.97, lineOffset: 2.4,  model: 'kart-ooli' },
-  { name: 'TURBO',  color: 0xff9100, accent: 0x663a00, skill: 0.95, lineOffset: -4.0, model: 'kart-oopi' },
-  { name: 'NEON',   color: 0xd500f9, accent: 0x4f005c, skill: 0.93, lineOffset: 3.8,  model: 'kart-oozi' },
-  { name: 'BLITZ',  color: 0x00e676, accent: 0x00592e, skill: 0.91, lineOffset: -1.2, model: 'race' },
-  { name: 'COMET',  color: 0x2979ff, accent: 0x0d2c66, skill: 0.89, lineOffset: 1.4,  model: 'race-future' },
-  { name: 'DRIFTA', color: 0xffffff, accent: 0x555555, skill: 0.87, lineOffset: -3.0, model: 'raceCarWhite' },
+  { name: 'JOLT',   color: 0xffea00, accent: 0x665e00, skill: 0.99, lineOffset: 2.4,  model: 'kart-ooli' },
+  { name: 'TURBO',  color: 0xff9100, accent: 0x663a00, skill: 0.98, lineOffset: -4.0, model: 'kart-oopi' },
+  { name: 'NEON',   color: 0xd500f9, accent: 0x4f005c, skill: 0.97, lineOffset: 3.8,  model: 'kart-oozi' },
+  { name: 'BLITZ',  color: 0x00e676, accent: 0x00592e, skill: 0.96, lineOffset: -1.2, model: 'race' },
+  { name: 'COMET',  color: 0x2979ff, accent: 0x0d2c66, skill: 0.95, lineOffset: 1.4,  model: 'race-future' },
+  { name: 'DRIFTA', color: 0xffffff, accent: 0x555555, skill: 0.94, lineOffset: -3.0, model: 'raceCarWhite' },
 ];

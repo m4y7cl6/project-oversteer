@@ -28,7 +28,7 @@ export class AIController {
     private getOthers: () => Kart[],
   ) {
     // AI charge nitro passively over time instead of via drift scoring
-    this.nitroChargeRate = 3.5 + Math.random() * 3.5;
+    this.nitroChargeRate = 6 + Math.random() * 3;
   }
 
   fixedUpdate(dt: number, enabled: boolean): void {
@@ -137,7 +137,7 @@ export class AIController {
       !blockedAhead
     ) {
       ki.nitro = true;
-      this.nitroCooldown = 6;
+      this.nitroCooldown = 4;
     }
   }
 
