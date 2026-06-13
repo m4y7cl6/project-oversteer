@@ -13,8 +13,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="NITRO RUSH" />
   
-  <script type="module" crossorigin src="./assets/index-242c442c.js"></script>
-  <link rel="stylesheet" href="./assets/index-5c708dc3.css">
+  <script type="module" crossorigin src="./assets/index-b21123d7.js"></script>
+  <link rel="stylesheet" href="./assets/index-3b55a266.css">
 </head>
 <body>
   <div id="app">
@@ -83,9 +83,43 @@
       </div>
       <div class="menu-stack">
         <button id="menu-race" class="big-btn primary">RACE</button>
+        <button id="menu-online" class="big-btn">ONLINE</button>
         <button id="menu-garage" class="big-btn">GARAGE</button>
         <button id="menu-settings" class="big-btn">SETTINGS</button>
       </div>
+    </div>
+
+    <!-- online lobby -->
+    <div id="online-screen" class="screen hidden">
+      <h2>ONLINE MULTIPLAYER</h2>
+      <div class="menu-block">
+        <p class="menu-label">YOUR NAME</p>
+        <input id="online-name" class="text-input" type="text" maxlength="12" placeholder="PLAYER" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="menu-block">
+        <p class="menu-label">ROOM CODE</p>
+        <div class="room-row">
+          <input id="online-room" class="text-input room-input" type="text" maxlength="8" placeholder="ABCD" autocomplete="off" spellcheck="false" />
+          <button id="online-random" class="small-btn">⟳</button>
+        </div>
+        <p class="hint-text">Share this code — anyone entering it joins your room.</p>
+      </div>
+      <details class="adv-details">
+        <summary>SERVER</summary>
+        <input id="online-server" class="text-input adv-input" type="text" value="wss://nitro-rush-server.onrender.com" autocomplete="off" spellcheck="false" />
+      </details>
+      <p id="online-error" class="online-error hidden"></p>
+      <button id="online-join" class="big-btn primary">JOIN ROOM</button>
+      <div id="lobby-panel" class="hidden">
+        <p class="menu-label">IN ROOM</p>
+        <div id="lobby-members-list"></div>
+        <div class="lobby-actions">
+          <button id="lobby-copy" class="small-btn">COPY INVITE LINK</button>
+          <button id="lobby-setup" class="big-btn primary hidden">SETUP RACE →</button>
+          <p id="lobby-wait" class="hidden lobby-wait-text">WAITING FOR HOST TO START…</p>
+        </div>
+      </div>
+      <button id="online-back" class="back-btn">◀ BACK</button>
     </div>
 
     <!-- garage: vehicle select / buy + upgrades -->
